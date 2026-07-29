@@ -409,18 +409,132 @@ document.addEventListener('DOMContentLoaded', () => {
         backgroundColor: '#f8fafc'
     });
 
-    // カスタムコントロールの設定
+    // カスタムコントロールの設定（選択時のハイライト色と枠線を明確に）
     fabric.Object.prototype.set({
         transparentCorners: false,
-        cornerColor: '#ffffff',
-        cornerStrokeColor: '#2563eb',
+        cornerColor: '#2563eb',
+        cornerStrokeColor: '#ffffff',
         borderColor: '#2563eb',
-        cornerSize: 8,
+        cornerSize: 10,
         padding: 4,
         cornerStyle: 'circle',
-        borderDashArray: [4, 4],
-        borderScaleFactor: 1.5
+        borderDashArray: null, // 点線を実線に変更してハイライトを明確化
+        borderScaleFactor: 2.5,
+        selectionBackgroundColor: 'rgba(37, 99, 235, 0.15)' // 選択オブジェクトの背景ハイライト
     });
+
+    // --------------------------------------------------
+    // Undo (一手戻る) & 複数選択モード & ズーム状態
+    // --------------------------------------------------
+    let historyStack = [];
+    let isUndoRedoOperation = false;
+    let isMultiSelectMode = false;
+    let currentZoomScale = 1.0;
+
+    function saveState() {
+        if (isUndoRedoOperation || isUpdating) return;
+        const json = canvas.toJSON([
+            'furnitureType', 'label', 'isSpecial', 'isFixed', 'w', 'h',
+            'selectable', 'evented', 'hasControls', 'lockMovementX', 'lockMovementY'
+        ]);
+        historyStack.push(JSON.stringify(json));
+        if (historyStack.length > 30) {
+            historyStack.shift(); // 最大30件
+        }
+        updateUndoButtonState();
+    }
+
+    function updateUndoButtonState() {
+        const undoBtn = document.getElementById('undoBtn');
+        if (undoBtn) {
+            undoBtn.disabled = historyStack.length <= 1;
+        }
+    }
+
+    function undo() {
+        if (historyStack.length <= 1) return;
+        isUndoRedoOperation = true;
+        historyStack.pop(); // 現在の状態を捨てる
+        const previousState = historyStack[historyStack.length - 1];
+
+        canvas.loadFromJSON(previousState, () => {
+            canvas.renderAll();
+            isUndoRedoOperation = false;
+            updateCapacityDisplay();
+            updateUndoButtonState();
+        });
+    }
+
+    document.getElementById('undoBtn')?.addEventListener('click', undo);
+    
+    // Ctrl+Z ショートカット
+    window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            undo();
+        }
+    });
+
+    // オブジェクト変更時に自動的に状態を保存
+    canvas.on('object:added', () => { if (!isUpdating && !isUndoRedoOperation) saveState(); });
+    canvas.on('object:modified', () => { if (!isUpdating && !isUndoRedoOperation) saveState(); });
+    canvas.on('object:removed', () => { if (!isUpdating && !isUndoRedoOperation) saveState(); });
+
+    // 複数選択モード切替ボタン
+    const multiSelectBtn = document.getElementById('multiSelectBtn');
+    if (multiSelectBtn) {
+        multiSelectBtn.addEventListener('click', () => {
+            isMultiSelectMode = !isMultiSelectMode;
+            if (isMultiSelectMode) {
+                multiSelectBtn.classList.add('active-multi-select');
+                multiSelectBtn.querySelector('span').textContent = '選択モード (ON)';
+            } else {
+                multiSelectBtn.classList.remove('active-multi-select');
+                multiSelectBtn.querySelector('span').textContent = '選択モード';
+            }
+        });
+    }
+
+    // 複数選択モード有効時は Fabric.js の標準複数選択機能(Shiftキー挙動)を自動適用 (PC・スマホ完全対応)
+    const injectShiftKey = (opt) => {
+        if (isMultiSelectMode && opt && opt.e) {
+            try {
+                Object.defineProperty(opt.e, 'shiftKey', { get: () => true, configurable: true });
+            } catch (err) {
+                opt.e.shiftKey = true;
+            }
+        }
+    };
+
+    canvas.on('mouse:down:before', injectShiftKey);
+    canvas.on('mouse:down', injectShiftKey);
+
+    // --------------------------------------------------
+    // ズーム（拡大・縮小）制御機能
+    // --------------------------------------------------
+    const zoomSlider = document.getElementById('zoomSlider');
+    const zoomValueText = document.getElementById('zoomValueText');
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const zoomResetBtn = document.getElementById('zoomResetBtn');
+
+    function applyZoom(zoomPercent) {
+        const clampZoom = Math.max(40, Math.min(250, zoomPercent));
+        currentZoomScale = clampZoom / 100;
+        
+        const wrapper = document.querySelector('.canvas-wrapper');
+        if (wrapper) {
+            wrapper.style.transform = `scale(${currentZoomScale})`;
+            wrapper.style.transformOrigin = 'center center';
+        }
+        if (zoomSlider) zoomSlider.value = clampZoom;
+        if (zoomValueText) zoomValueText.textContent = `${clampZoom}%`;
+    }
+
+    zoomSlider?.addEventListener('input', (e) => applyZoom(parseInt(e.target.value, 10)));
+    zoomInBtn?.addEventListener('click', () => applyZoom(Math.round(currentZoomScale * 100) + 15));
+    zoomOutBtn?.addEventListener('click', () => applyZoom(Math.round(currentZoomScale * 100) - 15));
+    zoomResetBtn?.addEventListener('click', () => applyZoom(100));
 
     // --------------------------------------------------
     // 2. 部屋の切り替え機能
@@ -431,20 +545,43 @@ document.addEventListener('DOMContentLoaded', () => {
         activeTimeouts.forEach(t => clearTimeout(t));
         activeTimeouts = [];
 
-        // セミナー室専用演台ボタンの表示切り替え
+        // 共用備品のソートおよびスクリーン・モニター非表示制御
+        const sharedContainer = document.querySelector('#sidebar button#addLecternSharedBtn')?.parentElement;
+        const screenBtn = document.getElementById('addScreenBtn');
+        const monitorBtn = document.getElementById('addMonitorBtn');
         const seminarLecternBtn = document.getElementById('addSeminarLecternBtn');
-        if (seminarLecternBtn) {
-            seminarLecternBtn.style.display = roomId === 'seminar' ? 'flex' : 'none';
-        }
-
         const swinkLecternBtn = document.getElementById('addSwinkLecternBtn');
-        if (swinkLecternBtn) {
-            swinkLecternBtn.style.display = roomId === 'swink' ? 'flex' : 'none';
-        }
-        
         const swinkMcDeskBtn = document.getElementById('addSwinkMcDeskBtn');
-        if (swinkMcDeskBtn) {
-            swinkMcDeskBtn.style.display = roomId === 'swink' ? 'flex' : 'none';
+
+        // 一旦すべての専用備品ボタンを非表示に完全リセット
+        if (seminarLecternBtn) seminarLecternBtn.style.display = 'none';
+        if (swinkLecternBtn) swinkLecternBtn.style.display = 'none';
+        if (swinkMcDeskBtn) swinkMcDeskBtn.style.display = 'none';
+
+        if (roomId === 'swink' || roomId === 'seminar') {
+            // スインクホール・セミナー室の場合はスクリーンとモニターを非表示
+            if (screenBtn) screenBtn.style.display = 'none';
+            if (monitorBtn) monitorBtn.style.display = 'none';
+
+            // 専用備品を共用備品エリアの最上部に移動して表示
+            if (roomId === 'seminar' && seminarLecternBtn && sharedContainer) {
+                seminarLecternBtn.style.display = 'flex';
+                sharedContainer.prepend(seminarLecternBtn);
+            }
+            if (roomId === 'swink' && sharedContainer) {
+                if (swinkMcDeskBtn) {
+                    swinkMcDeskBtn.style.display = 'flex';
+                    sharedContainer.prepend(swinkMcDeskBtn);
+                }
+                if (swinkLecternBtn) {
+                    swinkLecternBtn.style.display = 'flex';
+                    sharedContainer.prepend(swinkLecternBtn);
+                }
+            }
+        } else {
+            // 通常の部屋の場合はスクリーン・モニターを表示
+            if (screenBtn) screenBtn.style.display = 'flex';
+            if (monitorBtn) monitorBtn.style.display = 'flex';
         }
 
         const room = ROOM_DATA[roomId];
@@ -838,6 +975,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         isUpdating = false;
                         updateCapacityDisplay();
                         canvas.requestRenderAll();
+                        historyStack = [];
+                        saveState();
                     }
                 }, index * 10);
                 activeTimeouts.push(timeoutId);
@@ -845,6 +984,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             isUpdating = false;
             updateCapacityDisplay();
+            historyStack = [];
+            saveState();
         }
 
         canvas.requestRenderAll();
@@ -921,11 +1062,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // 家具追加時の制限チェック
     function canAddFurniture(type) {
         const room = ROOM_DATA[currentRoomId];
-        if (!room || !room.limits || !room.limits[type]) return true;
+        if (!room) return false;
+
+        const isDedicatedEquipment = ['seminarLectern', 'swinkLectern', 'swinkMcDesk'].includes(type);
+        if (isDedicatedEquipment && (!room.limits || room.limits[type] === undefined)) {
+            alert('この備品は現在の部屋には配置できません。');
+            return false;
+        }
+
+        if (!room.limits || room.limits[type] === undefined) return true;
 
         let currentCount;
         if (type === 'seminarLectern') {
-            currentCount = canvas.getObjects().filter(obj => obj.label === 'セミナー室演台').length;
+            currentCount = canvas.getObjects().filter(obj => obj.label === 'セミナー室演台' || obj.furnitureType === 'seminarLectern').length;
         } else if (type === 'swinkLectern' || type === 'swinkMcDesk') {
             currentCount = canvas.getObjects().filter(obj => obj.furnitureType === type).length;
         } else {
@@ -936,7 +1085,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const labels = {
                 desk: '机', chair: '椅子', whiteboard: 'ホワイトボード',
                 lecternShared: '演台', mcDesk: '司会者台', screen: 'スクリーン', monitor: 'モニター',
-                seminarLectern: 'セミナー室演台'
+                seminarLectern: 'セミナー室演台', swinkLectern: 'スインクホール演台', swinkMcDesk: 'スインクホール司会台'
             };
             alert(`${room.name}の${labels[type] || type}は最大${room.limits[type]}個まで配置可能です。`);
             return false;
@@ -1040,6 +1189,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 obj.set('angle', (currentAngle + 90) % 360);
                 // グループ内のアイテムの位置関係が崩れないよう調整が必要な場合があるが
                 // 単体または複数選択の回転であればangleの更新で基本OK
+            });
+            canvas.requestRenderAll();
+        } else {
+            alert('回転させたいアイテムを選択してください。');
+        }
+    });
+
+    // 180度回転ボタン
+    document.getElementById('rotateBtn180')?.addEventListener('click', () => {
+        const activeObjects = canvas.getActiveObjects();
+        if (activeObjects.length > 0) {
+            activeObjects.forEach(obj => {
+                const currentAngle = obj.angle || 0;
+                obj.set('angle', (currentAngle + 180) % 360);
             });
             canvas.requestRenderAll();
         } else {
@@ -1317,45 +1480,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 groupItems.push(highlight);
 
-                // 3人掛けガイド（椅子が3脚並ぶサイズ感を示す）
-                const seatW = 0.45 * SCALE;
-                const seatH = 0.4 * SCALE;
-                const seatSpacing = w / 3;
-                for (let i = 0; i < 3; i++) {
-                    // 簡易的な椅子アイコン（コの字型）: 開口部を机側（上）に向ける
-                    const seatGuide = new fabric.Path(`M ${-seatW / 2.5} ${-seatH / 2} L ${-seatW / 2.5} ${seatH / 2} L ${seatW / 2.5} ${seatH / 2} L ${seatW / 2.5} ${-seatH / 2}`, {
-                        fill: 'transparent',
-                        stroke: 'rgba(148, 163, 184, 0.25)',
-                        strokeWidth: 1.5,
-                        left: -w / 2 + (seatSpacing * i) + (seatSpacing / 2),
-                        top: h / 2 + (0.15 * SCALE), // 机から少し離す
-                        originX: 'center',
-                        originY: 'center',
-                        selectable: false,
-                        evented: false
-                    });
-                    groupItems.push(seatGuide);
-                }
-
                 // デスクの装飾ライン
                 const edge = new fabric.Rect({
                     width: w - 12, height: 2, fill: style.accent, top: h / 2 - 6, originX: 'center', originY: 'center', selectable: false
                 });
                 groupItems.push(edge);
             }
-
-            // 【最重要】重心バランスの完全同期
-            // 椅子ガイド（h/2 + 0.15）の反対側に、全く同じオフセットと高さを持つ透明ダミーを配置します。
-            // これにより、グループの幾何学的な中心が、机本体の中心と完全に一致します。
-            const chairOffset = (0.15 * SCALE);
-            const chairHeight = (0.4 * SCALE);
-            const balanceDummy = new fabric.Rect({
-                width: w, height: chairHeight, fill: 'transparent',
-                top: -(h / 2 + chairOffset), 
-                originX: 'center', originY: 'center', 
-                selectable: false, evented: false
-            });
-            groupItems.push(balanceDummy);
 
             // ラベルがある場合
             if (options.label) {
