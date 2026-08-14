@@ -3,13 +3,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. 定数とデータ定義 (?v=29)
     // --------------------------------------------------
 
-    // 最大表示サイズを計算する関数 (PCは800、スマホは画面幅に合わせる)
+    // 最大表示サイズを計算する関数 (スマホ・PCともに右上のコンパス・回転ボタンを含めて画面枠に収める)
     function getMaxCanvasSize() {
         if (window.innerWidth < 1024) {
-            // スマホ表示時: 画面幅から左右の余白を引いたサイズ。最大500pxに制限
-            return Math.min(window.innerWidth - 48, 500);
+            // スマホ表示時: 右側ボタンエリア(約70px)と左右余白を引いた最適な幅・高さを算出
+            const availW = Math.max(240, window.innerWidth - 110);
+            const availH = Math.max(240, window.innerHeight - 220);
+            return Math.min(availW, availH, 440);
         }
-        return 800;
+        // PC表示時: 右上ツールバー含め画面全体にゆったり収まる800px上限
+        const availW = Math.max(400, window.innerWidth - 500);
+        const availH = Math.max(400, window.innerHeight - 180);
+        return Math.min(availW, availH, 760);
     }
 
     // 部屋データ (実寸メートル & 備品上限)
@@ -64,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
             limits: { desk: 6, chair: 12, whiteboard: 1 },
             initialLayout: [
                 { type: 'whiteboard', x: 1.2, y: 1.2, angle: 135 },
+                { type: 'desk', x: 4.35, y: 1.4, w: 2.3, h: 0.8, angle: 0, label: '操作卓', isSpecial: true, isFixed: true, isWhite: true },
                 ...Array.from({ length: 3 }, (_, row) => [
                     { type: 'desk', x: 1.5, y: 2.8 + row * 1.5 },
                     { type: 'desk', x: 4.0, y: 2.8 + row * 1.5 }
@@ -409,8 +415,11 @@ document.addEventListener('DOMContentLoaded', () => {
         backgroundColor: '#f8fafc'
     });
 
-    // カスタムコントロールの設定（選択時のハイライト色と枠線を明確に）
+    // カスタムコントロールの設定（選択時のハイライト色と枠線を明確に・サイズ変更を禁止ロック）
     fabric.Object.prototype.set({
+        lockScalingX: true,
+        lockScalingY: true,
+        lockUniScaling: true,
         transparentCorners: false,
         cornerColor: '#2563eb',
         cornerStrokeColor: '#ffffff',
@@ -422,6 +431,25 @@ document.addEventListener('DOMContentLoaded', () => {
         borderScaleFactor: 2.5,
         selectionBackgroundColor: 'rgba(37, 99, 235, 0.15)' // 選択オブジェクトの背景ハイライト
     });
+
+    // 単一選択・複数選択問わず拡大縮小（サイズ変更）を完全不可に固定
+    const enforceSizeLock = (e) => {
+        const target = e.target;
+        if (target) {
+            target.set({
+                lockScalingX: true,
+                lockScalingY: true,
+                lockUniScaling: true
+            });
+            target.setControlsVisibility({
+                tl: false, tr: false, bl: false, br: false,
+                ml: false, mt: false, mr: false, mb: false,
+                mtr: true
+            });
+        }
+    };
+    canvas.on('selection:created', enforceSizeLock);
+    canvas.on('selection:updated', enforceSizeLock);
 
     // --------------------------------------------------
     // Undo (一手戻る) & 複数選択モード & ズーム状態
@@ -475,9 +503,89 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // オブジェクト変更時に自動的に状態を保存
+    // オブジェクトがキャンバスの壁を食み出さないよう厳密にクランプする関数（二重安全復元ガード付き）
+    function clampObjectInsideWalls(obj) {
+        if (!obj) return;
+        const wallThick = 0.12 * SCALE;
+        const roomAreaHeight = canvas.height - 50; // infoMargin
+
+        const minX = wallThick;
+        const minY = wallThick;
+        const maxX = canvas.width - wallThick;
+        const maxY = roomAreaHeight - wallThick;
+
+        let bound = obj.getBoundingRect(true);
+
+        let adjustLeft = 0;
+        let adjustTop = 0;
+
+        if (bound.left < minX) {
+            adjustLeft = minX - bound.left;
+        } else if (bound.left + bound.width > maxX) {
+            adjustLeft = maxX - (bound.left + bound.width);
+        }
+
+        if (bound.top < minY) {
+            adjustTop = minY - bound.top;
+        } else if (bound.top + bound.height > maxY) {
+            adjustTop = maxY - (bound.top + bound.height);
+        }
+
+        if (adjustLeft !== 0 || adjustTop !== 0) {
+            obj.set({
+                left: obj.left + adjustLeft,
+                top: obj.top + adjustTop
+            });
+            obj.setCoords();
+
+            // 調整後も食み出している場合は最後の安全座標へ絶対復元
+            bound = obj.getBoundingRect(true);
+            if (bound.left < minX - 0.5 || bound.left + bound.width > maxX + 0.5 || bound.top < minY - 0.5 || bound.top + bound.height > maxY + 0.5) {
+                if (typeof obj.lastValidLeft === 'number' && typeof obj.lastValidTop === 'number') {
+                    obj.set({ left: obj.lastValidLeft, top: obj.lastValidTop });
+                    obj.setCoords();
+                }
+            }
+        } else {
+            // 壁の内側に完全に収まっている安全座標を更新
+            obj.lastValidLeft = obj.left;
+            obj.lastValidTop = obj.top;
+        }
+    }
+
+    // オブジェクト移動時の壁当たり判定＆スナップ連動処理
+    canvas.on('object:moving', (e) => {
+        const obj = e.target;
+        if (!obj) return;
+
+        // スナップ有効時の位置計算
+        if (typeof isSnapEnabled !== 'undefined' && isSnapEnabled) {
+            const SNAP_STEP_M = 0.1;
+            const snapStep = SNAP_STEP_M * SCALE;
+            obj.set({
+                left: Math.round(obj.left / snapStep) * snapStep,
+                top: Math.round(obj.top / snapStep) * snapStep
+            });
+        }
+
+        // 壁の外側への食み出しを厳密にガード
+        if (obj.furnitureType || obj.type === 'activeSelection' || obj.isSpecial) {
+            clampObjectInsideWalls(obj);
+        }
+    });
+
+    canvas.on('object:rotating', (e) => {
+        if (e.target && (e.target.furnitureType || e.target.type === 'activeSelection' || e.target.isSpecial)) {
+            clampObjectInsideWalls(e.target);
+        }
+    });
+
+    // オブジェクト変更時に自動的に状態を保存＆最終壁内チェック
     canvas.on('object:added', () => { if (!isUpdating && !isUndoRedoOperation) saveState(); });
-    canvas.on('object:modified', () => { if (!isUpdating && !isUndoRedoOperation) saveState(); });
+    canvas.on('object:modified', (e) => {
+        if (e.target) clampObjectInsideWalls(e.target);
+        if (!isUpdating && !isUndoRedoOperation) saveState();
+    });
     canvas.on('object:removed', () => { if (!isUpdating && !isUndoRedoOperation) saveState(); });
 
     // 複数選択モード切替ボタン
@@ -508,33 +616,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     canvas.on('mouse:down:before', injectShiftKey);
     canvas.on('mouse:down', injectShiftKey);
-
-    // --------------------------------------------------
-    // ズーム（拡大・縮小）制御機能
-    // --------------------------------------------------
-    const zoomSlider = document.getElementById('zoomSlider');
-    const zoomValueText = document.getElementById('zoomValueText');
-    const zoomInBtn = document.getElementById('zoomInBtn');
-    const zoomOutBtn = document.getElementById('zoomOutBtn');
-    const zoomResetBtn = document.getElementById('zoomResetBtn');
-
-    function applyZoom(zoomPercent) {
-        const clampZoom = Math.max(40, Math.min(250, zoomPercent));
-        currentZoomScale = clampZoom / 100;
-        
-        const wrapper = document.querySelector('.canvas-wrapper');
-        if (wrapper) {
-            wrapper.style.transform = `scale(${currentZoomScale})`;
-            wrapper.style.transformOrigin = 'center center';
-        }
-        if (zoomSlider) zoomSlider.value = clampZoom;
-        if (zoomValueText) zoomValueText.textContent = `${clampZoom}%`;
-    }
-
-    zoomSlider?.addEventListener('input', (e) => applyZoom(parseInt(e.target.value, 10)));
-    zoomInBtn?.addEventListener('click', () => applyZoom(Math.round(currentZoomScale * 100) + 15));
-    zoomOutBtn?.addEventListener('click', () => applyZoom(Math.round(currentZoomScale * 100) - 15));
-    zoomResetBtn?.addEventListener('click', () => applyZoom(100));
 
     // --------------------------------------------------
     // 2. 部屋の切り替え機能
@@ -621,9 +702,14 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCompass(roomId);
 
         const wrapper = document.querySelector('.canvas-wrapper');
+        const scaleInner = document.getElementById('canvasScaleInner');
         if (wrapper) {
             wrapper.style.width = `${newWidth}px`;
             wrapper.style.height = `${newHeight}px`;
+        }
+        if (scaleInner) {
+            scaleInner.style.width = `${newWidth}px`;
+            scaleInner.style.height = `${newHeight}px`;
         }
 
         // 固有コントロールとラベルの表示制御
@@ -793,7 +879,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-            const stageLabel = new fabric.Text('STAGE', {
+            const stageLabel = new fabric.Text('ステージ', {
                 left: centerX, top: stageTopY + (stageTotalDepth - straightDepth) / 2,
                 fontSize: 24, fontWeight: 'bold', fill: '#94a3b8', originX: 'center', originY: 'center', selectable: false
             });
@@ -875,75 +961,144 @@ document.addEventListener('DOMContentLoaded', () => {
             canvas.add(seatsLabel);
         }
 
-        // 4. ドアの描画（建築図面風の開閉アーク付き）
+        // 4. ドアの描画（建築図面風：90度開いた状態＋開閉アーク）
         const doorSizeMap = {
             room1: 1.2, room2: 1.2, room3: 1.8, room4: 1.8,
             training: 1.76, multi: 1.8, seminar: 2.1, swink: 2.1
         };
         const doorSize = (doorSizeMap[roomId] || 1.0) * SCALE;
         const doors = DOOR_LOCATIONS[roomId] || [];
-        const isOutward = (roomId === 'seminar' || roomId === 'swink');
+
+        // 開いた扉パネルを作るヘルパー（horizontal=壁に沿う向き, vertical=部屋内へ90度開いた向き）
+        const makeOpenPanel = (x, y, size, orientation, hingeX, hingeY) => {
+            const isVertical = orientation === 'vertical';
+            return new fabric.Rect({
+                left: x, top: y,
+                width: isVertical ? 2 : size,
+                height: isVertical ? size : 2,
+                fill: '#94a3b8',
+                selectable: false,
+                evented: false,
+                originX: hingeX,
+                originY: hingeY
+            });
+        };
+
+        const makeDoorArc = (path, x, y, hingeX, hingeY) => new fabric.Path(path, {
+            left: x, top: y,
+            fill: 'transparent',
+            stroke: '#cbd5e1',
+            strokeWidth: 1.5,
+            selectable: false,
+            evented: false,
+            strokeDashArray: [4, 2],
+            originX: hingeX,
+            originY: hingeY
+        });
+
+        const makeWallGap = (gapLeft, gapTop, gapWidth, gapHeight) =>
+            new fabric.Rect({ left: gapLeft, top: gapTop, width: gapWidth, height: gapHeight, fill: '#ffffff', selectable: false, evented: false });
 
         doors.forEach(doorData => {
             const pos = typeof doorData === 'string' ? doorData : doorData.pos;
             const offset = (typeof doorData === 'object' && doorData.offset ? doorData.offset : 0) * SCALE;
-            let x, y, angle = 0, flipX = false, flipY = false;
+            const isDoubleDoor = (roomId === 'seminar' || roomId === 'swink');
 
-            // ドア位置の基本座標計算と開閉方向の設定
-            if (pos === 'bottom-left') {
-                x = wallThick + offset; y = roomAreaHeight - wallThick;
-                angle = 0; flipY = isOutward ? false : true;
-            }
-            else if (pos === 'bottom-right') {
-                x = newWidth - wallThick - doorSize - offset; y = roomAreaHeight - wallThick;
-                angle = 0; flipX = true; flipY = isOutward ? false : true;
-            }
-            else if (pos === 'top-left') {
-                x = wallThick + offset; y = wallThick;
-                angle = 0; flipY = isOutward ? true : false;
-            }
-            else if (pos === 'top-right') {
-                x = newWidth - wallThick - doorSize - offset; y = wallThick;
-                angle = 0; flipX = true; flipY = isOutward ? true : false;
-            }
-            else if (pos === 'left-bottom') {
-                x = wallThick; y = roomAreaHeight - wallThick - doorSize - offset;
-                angle = 90; flipX = isOutward ? true : false;
-            }
-            else if (pos === 'left-top') {
-                x = wallThick; y = wallThick + offset;
-                angle = 90; flipX = isOutward ? true : false;
-            }
+            if (isDoubleDoor) {
+                // 観音開き：両扉が通路側へ90度開いた状態
+                const halfDoor = doorSize / 2;
+                let x, y, gapLeft, gapTop, gapWidth, gapHeight;
 
-            // ドアの軌跡（アーク）
-            const doorArc = new fabric.Path(`M 0 0 A ${doorSize} ${doorSize} 0 0 1 ${doorSize} ${doorSize}`, {
-                left: x, top: y, fill: 'transparent', stroke: '#cbd5e1', strokeWidth: 1.5,
-                selectable: false, evented: false, strokeDashArray: [4, 2],
-                originX: flipX ? 'right' : 'left', originY: flipY ? 'bottom' : 'top',
-                flipX: flipX, flipY: flipY, angle: angle
-            });
+                if (pos.startsWith('top')) {
+                    x = (pos === 'top-left') ? wallThick + offset : newWidth - wallThick - doorSize - offset;
+                    y = wallThick;
+                    gapLeft = x; gapTop = -1; gapWidth = doorSize; gapHeight = wallThick + 2;
 
-            // ドアパネル本体
-            const doorPanel = new fabric.Rect({
-                left: x, top: y, width: 2, height: doorSize,
-                fill: '#94a3b8', selectable: false, evented: false,
-                originX: flipX ? 'right' : 'left', originY: flipY ? 'bottom' : 'top',
-                flipX: flipX, flipY: flipY, angle: angle
-            });
+                    // 通路側（北）へ開く：左扉は西端ヒンジ、右扉は東端ヒンジ
+                    const leftArc = makeDoorArc(`M ${halfDoor} 0 A ${halfDoor} ${halfDoor} 0 0 0 0 -${halfDoor}`, x, y, 'left', 'bottom');
+                    const leftPanel = makeOpenPanel(x, y, halfDoor, 'vertical', 'left', 'bottom');
+                    const rightArc = makeDoorArc(`M -${halfDoor} 0 A ${halfDoor} ${halfDoor} 0 0 1 0 -${halfDoor}`, x + doorSize, y, 'right', 'bottom');
+                    const rightPanel = makeOpenPanel(x + doorSize, y, halfDoor, 'vertical', 'right', 'bottom');
 
-            // 壁の空白（ドア部分を白抜きにする）
-            const gapWidth = (pos.startsWith('left') || pos.startsWith('right')) ? wallThick + 2 : doorSize;
-            const gapHeight = (pos.startsWith('left') || pos.startsWith('right')) ? doorSize : wallThick + 2;
-            const gapLeft = (pos.startsWith('left')) ? -1 : (pos.startsWith('right') ? newWidth - wallThick - 1 : x);
-            const gapTop = (pos.startsWith('top')) ? -1 : (pos.startsWith('bottom') ? roomAreaHeight - wallThick - 1 : y);
+                    canvas.add(makeWallGap(gapLeft, gapTop, gapWidth, gapHeight));
+                    canvas.add(leftArc, leftPanel, rightArc, rightPanel);
+                } else if (pos.startsWith('bottom')) {
+                    x = (pos === 'bottom-left') ? wallThick + offset : newWidth - wallThick - doorSize - offset;
+                    y = roomAreaHeight - wallThick;
+                    gapLeft = x; gapTop = roomAreaHeight - wallThick - 1; gapWidth = doorSize; gapHeight = wallThick + 2;
 
-            canvas.add(new fabric.Rect({
-                left: gapLeft, top: gapTop, width: gapWidth, height: gapHeight,
-                fill: '#ffffff', selectable: false, evented: false
-            }));
+                    // 通路側（南）へ開く
+                    const leftArc = makeDoorArc(`M ${halfDoor} 0 A ${halfDoor} ${halfDoor} 0 0 1 0 ${halfDoor}`, x, y, 'left', 'top');
+                    const leftPanel = makeOpenPanel(x, y, halfDoor, 'vertical', 'left', 'top');
+                    const rightArc = makeDoorArc(`M -${halfDoor} 0 A ${halfDoor} ${halfDoor} 0 0 0 0 ${halfDoor}`, x + doorSize, y, 'right', 'top');
+                    const rightPanel = makeOpenPanel(x + doorSize, y, halfDoor, 'vertical', 'right', 'top');
 
-            canvas.add(doorArc);
-            canvas.add(doorPanel);
+                    canvas.add(makeWallGap(gapLeft, gapTop, gapWidth, gapHeight));
+                    canvas.add(leftArc, leftPanel, rightArc, rightPanel);
+                }
+            } else {
+                // 片開きドア
+                let x, y, doorArc, doorPanel, gapLeft, gapTop, gapWidth, gapHeight;
+
+                if (pos === 'left-top') {
+                    // 会議室2：西壁・上段。北端ヒンジで東（右）へ開く
+                    x = wallThick; y = wallThick + offset;
+                    gapLeft = -1; gapTop = y; gapWidth = wallThick + 2; gapHeight = doorSize;
+                    doorArc = makeDoorArc(`M ${doorSize} 0 A ${doorSize} ${doorSize} 0 0 1 0 ${doorSize}`, x, y, 'left', 'top');
+                    doorPanel = makeOpenPanel(x, y, doorSize, 'horizontal', 'left', 'top');
+                }
+                else if (pos === 'left-bottom' && roomId === 'room1') {
+                    // 会議室1：西壁・下段。南端ヒンジで東（右）へ開く
+                    x = wallThick; y = roomAreaHeight - wallThick - offset;
+                    gapLeft = -1; gapTop = roomAreaHeight - wallThick - doorSize - offset; gapWidth = wallThick + 2; gapHeight = doorSize;
+                    doorArc = makeDoorArc(`M ${doorSize} 0 A ${doorSize} ${doorSize} 0 0 0 0 -${doorSize}`, x, y, 'left', 'bottom');
+                    doorPanel = makeOpenPanel(x, y, doorSize, 'horizontal', 'left', 'bottom');
+                }
+                else if (roomId === 'room3' || pos === 'top-right') {
+                    // 会議室3：北壁・東側（右寄り）。西端（左）ヒンジで南（下・部屋内）へ開く
+                    x = newWidth - wallThick - doorSize - offset;
+                    y = wallThick;
+                    gapLeft = x; gapTop = -1; gapWidth = doorSize; gapHeight = wallThick + 2;
+                    doorArc = makeDoorArc(`M ${doorSize} 0 A ${doorSize} ${doorSize} 0 0 1 0 ${doorSize}`, x, y, 'left', 'top');
+                    doorPanel = makeOpenPanel(x, y, doorSize, 'vertical', 'left', 'top');
+                }
+                else if (roomId === 'room4' || roomId === 'multi') {
+                    // 会議室4・多目的研修室：南壁・東端ヒンジで北（上・部屋内）へ開く
+                    x = newWidth - wallThick - offset;
+                    y = roomAreaHeight - wallThick;
+                    gapLeft = newWidth - wallThick - doorSize - offset; gapTop = roomAreaHeight - wallThick - 1; gapWidth = doorSize; gapHeight = wallThick + 2;
+                    doorArc = makeDoorArc(`M -${doorSize} 0 A ${doorSize} ${doorSize} 0 0 1 0 -${doorSize}`, x, y, 'right', 'bottom');
+                    doorPanel = makeOpenPanel(x, y, doorSize, 'vertical', 'right', 'bottom');
+                }
+                else if (roomId === 'training') {
+                    // 研修室：南壁・西端（左）ヒンジで北（上・部屋内）へ開く
+                    x = newWidth - wallThick - doorSize - offset;
+                    y = roomAreaHeight - wallThick;
+                    gapLeft = x; gapTop = roomAreaHeight - wallThick - 1; gapWidth = doorSize; gapHeight = wallThick + 2;
+                    doorArc = makeDoorArc(`M ${doorSize} 0 A ${doorSize} ${doorSize} 0 0 0 0 -${doorSize}`, x, y, 'left', 'bottom');
+                    doorPanel = makeOpenPanel(x, y, doorSize, 'vertical', 'left', 'bottom');
+                }
+                else if (pos === 'bottom-left') {
+                    x = wallThick + offset; y = roomAreaHeight - wallThick;
+                    gapLeft = x; gapTop = roomAreaHeight - wallThick - 1; gapWidth = doorSize; gapHeight = wallThick + 2;
+                    doorArc = makeDoorArc(`M ${doorSize} 0 A ${doorSize} ${doorSize} 0 0 0 0 -${doorSize}`, x, y, 'left', 'bottom');
+                    doorPanel = makeOpenPanel(x, y, doorSize, 'vertical', 'left', 'bottom');
+                } else if (pos === 'bottom-right') {
+                    x = newWidth - wallThick - offset; y = roomAreaHeight - wallThick;
+                    gapLeft = newWidth - wallThick - doorSize - offset; gapTop = roomAreaHeight - wallThick - 1; gapWidth = doorSize; gapHeight = wallThick + 2;
+                    doorArc = makeDoorArc(`M -${doorSize} 0 A ${doorSize} ${doorSize} 0 0 1 0 -${doorSize}`, x, y, 'right', 'bottom');
+                    doorPanel = makeOpenPanel(x, y, doorSize, 'vertical', 'right', 'bottom');
+                } else {
+                    // その他（北壁・左寄りなど）
+                    x = wallThick + offset; y = wallThick;
+                    gapLeft = x; gapTop = -1; gapWidth = doorSize; gapHeight = wallThick + 2;
+                    doorArc = makeDoorArc(`M ${doorSize} 0 A ${doorSize} ${doorSize} 0 0 1 0 ${doorSize}`, x, y, 'left', 'top');
+                    doorPanel = makeOpenPanel(x, y, doorSize, 'vertical', 'left', 'top');
+                }
+
+                canvas.add(makeWallGap(gapLeft, gapTop, gapWidth, gapHeight));
+                canvas.add(doorArc, doorPanel);
+            }
         });
         
 
@@ -1180,37 +1335,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 90度回転ボタン
-    document.getElementById('rotateBtn')?.addEventListener('click', () => {
-        const activeObjects = canvas.getActiveObjects();
-        if (activeObjects.length > 0) {
-            activeObjects.forEach(obj => {
-                const currentAngle = obj.angle || 0;
-                obj.set('angle', (currentAngle + 90) % 360);
-                // グループ内のアイテムの位置関係が崩れないよう調整が必要な場合があるが
-                // 単体または複数選択の回転であればangleの更新で基本OK
-            });
-            canvas.requestRenderAll();
-        } else {
-            alert('回転させたいアイテムを選択してください。');
-        }
-    });
-
-    // 180度回転ボタン
-    document.getElementById('rotateBtn180')?.addEventListener('click', () => {
-        const activeObjects = canvas.getActiveObjects();
-        if (activeObjects.length > 0) {
-            activeObjects.forEach(obj => {
-                const currentAngle = obj.angle || 0;
-                obj.set('angle', (currentAngle + 180) % 360);
-            });
-            canvas.requestRenderAll();
-        } else {
-            alert('回転させたいアイテムを選択してください。');
-        }
-    });
-
-
 
     // 部屋選択イベント
     document.getElementById('roomSelect').addEventListener('change', (e) => {
@@ -1441,19 +1565,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 groupItems.push(topStep);
             } else if (options.label === '操作卓') {
-                // 操作卓：機器やモニターがある重厚なデスク
+                // 操作卓：機器やモニターがあるデスク（isWhite 指定または研修室の場合は白色）
+                const isWhiteDesk = options.isWhite || options.color === 'white' || (currentRoomId === 'training' && options.label === '操作卓');
+                const bodyColor = isWhiteDesk ? '#ffffff' : '#334155';
+                const strokeColor = isWhiteDesk ? '#cbd5e1' : '#0f172a';
+                const panelColor = isWhiteDesk ? '#e2e8f0' : '#475569';
+                const monitorColor = isWhiteDesk ? '#64748b' : '#94a3b8';
+
                 const body = new fabric.Rect({
-                    width: w, height: h, fill: '#334155', stroke: '#0f172a', strokeWidth: 2, rx: 2, ry: 2, originX: 'center', originY: 'center'
+                    width: w, height: h, fill: bodyColor, stroke: strokeColor, strokeWidth: 2, rx: 3, ry: 3, originX: 'center', originY: 'center'
                 });
                 groupItems.push(body);
                 // モニター（画面）の表現
                 const monitor = new fabric.Rect({
-                    width: w * 0.5, height: 4, fill: '#94a3b8', top: -h / 4, originX: 'center', originY: 'center'
+                    width: w * 0.5, height: Math.max(3, h * 0.08), fill: monitorColor, top: -h / 4, originX: 'center', originY: 'center'
                 });
                 groupItems.push(monitor);
                 // 操作部（キーボード等）
                 const panel = new fabric.Rect({
-                    width: w * 0.7, height: h * 0.3, fill: '#475569', top: h / 4, originX: 'center', originY: 'center'
+                    width: w * 0.7, height: h * 0.3, fill: panelColor, top: h / 4, originX: 'center', originY: 'center'
                 });
                 groupItems.push(panel);
             } else {
@@ -1489,7 +1619,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // ラベルがある場合
             if (options.label) {
-                const labelColor = (options.label === '操作卓') ? '#f8fafc' : '#64748b';
+                const isWhiteDesk = options.isWhite || options.color === 'white' || (currentRoomId === 'training' && options.label === '操作卓');
+                const labelColor = (options.label === '操作卓') ? (isWhiteDesk ? '#334155' : '#f8fafc') : '#64748b';
                 const label = new fabric.Text(options.label, {
                     fontSize: 12, fill: labelColor, fontWeight: 'bold', originX: 'center', originY: 'center'
                 });
@@ -1797,17 +1928,6 @@ document.addEventListener('DOMContentLoaded', () => {
         isSnapEnabled = e.target.checked;
     });
 
-    canvas.on('object:moving', (options) => {
-        if (!isSnapEnabled) return;
-
-        const snapStep = SNAP_STEP_M * SCALE;
-
-        options.target.set({
-            left: Math.round(options.target.left / snapStep) * snapStep,
-            top: Math.round(options.target.top / snapStep) * snapStep
-        });
-    });
-
     // 削除キー
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -1930,5 +2050,88 @@ document.addEventListener('DOMContentLoaded', () => {
     // --------------------------------------------------
     updateCapacityDisplay();
     updateRoom(currentRoomId);
+
+    // --------------------------------------------------
+    // 7. 表示・回転操作パネル (Zoom & Rotation Controls)
+    // --------------------------------------------------
+    let currentZoom = 100;
+    let currentRoomRotation = 0;
+
+    const zoomSlider = document.getElementById('zoomSlider');
+    const zoomValueText = document.getElementById('zoomValueText');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomResetBtn = document.getElementById('zoomResetBtn');
+    const canvasScaleInner = document.getElementById('canvasScaleInner');
+    const compass = document.getElementById('compass');
+    const rotateBtn = document.getElementById('rotateBtn');
+    const rotateBtn180 = document.getElementById('rotateBtn180');
+
+    function applyZoom(newZoom) {
+        currentZoom = Math.min(250, Math.max(40, newZoom));
+        if (zoomSlider) zoomSlider.value = currentZoom;
+        if (zoomValueText) zoomValueText.textContent = `${currentZoom}%`;
+        
+        if (canvasScaleInner) {
+            canvasScaleInner.style.transform = `scale(${currentZoom / 100})`;
+        }
+    }
+
+    if (zoomSlider) {
+        zoomSlider.addEventListener('input', (e) => {
+            applyZoom(parseInt(e.target.value, 10));
+        });
+    }
+
+    if (zoomOutBtn) {
+        zoomOutBtn.addEventListener('click', () => {
+            applyZoom(currentZoom - 15);
+        });
+    }
+
+    if (zoomInBtn) {
+        zoomInBtn.addEventListener('click', () => {
+            applyZoom(currentZoom + 15);
+        });
+    }
+
+    if (zoomResetBtn) {
+        zoomResetBtn.addEventListener('click', () => {
+            applyZoom(100);
+        });
+    }
+
+    function rotateSelectedObjects(angleDelta) {
+        const activeObject = canvas.getActiveObject();
+        if (!activeObject) {
+            alert('回転させる備品をクリックして選択してください。');
+            return;
+        }
+
+        // 現在の角度 (0, 90, 180, 270) を取得し、正確に angleDelta (90° または 180°) を加算
+        let currentAngle = Math.round(activeObject.angle || 0);
+        // 負の角度対策も含めて 0~359度 にクランプ
+        let targetAngle = (currentAngle + angleDelta) % 360;
+        if (targetAngle < 0) targetAngle += 360;
+
+        activeObject.set('angle', targetAngle);
+        activeObject.setCoords();
+        canvas.requestRenderAll();
+        saveState();
+    }
+
+    if (rotateBtn) {
+        rotateBtn.onclick = (e) => {
+            e.preventDefault();
+            rotateSelectedObjects(90);
+        };
+    }
+
+    if (rotateBtn180) {
+        rotateBtn180.onclick = (e) => {
+            e.preventDefault();
+            rotateSelectedObjects(180);
+        };
+    }
 });
 
