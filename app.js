@@ -926,10 +926,13 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas.add(floor);
 
         // 5. 寸法ラベルの追加 (部屋の枠外・下部中央に配置)
-        const dimensionText = new fabric.Text(`部屋寸法: ${room.width.toFixed(2)}m × ${calcHeight.toFixed(2)}m (壁芯内寸)`, {
+        const textString = `部屋寸法: ${room.width.toFixed(2)}m × ${calcHeight.toFixed(2)}m (壁芯内寸)`;
+        // 幅に応じて文字が溢れないようフォントサイズを動的調整 (9px〜13px)
+        const fontSize = Math.min(13, Math.max(9, Math.floor(newWidth / 31)));
+        const dimensionText = new fabric.Text(textString, {
             left: newWidth / 2,
             top: roomAreaHeight + 30, // 少し上寄りに
-            fontSize: 14,
+            fontSize: fontSize,
             fontWeight: 'bold',
             fill: '#475569',
             originX: 'center',
