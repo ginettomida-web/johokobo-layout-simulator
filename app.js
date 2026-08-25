@@ -167,9 +167,144 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentRoomId = 'room1';
     let swinkSeatsActive = true;
+    let currentBleacherGroup = null; // 観覧席グループオブジェクトの参照保持
     let SCALE = 100;
     let isUpdating = false; 
     let activeTimeouts = [];
+
+    // 移動観覧席トグルの表示更新ヘルパー
+    function updateSwinkSeatsToggleUI() {
+        const status = document.getElementById('swinkSeatsStatus');
+        const dot = document.getElementById('swinkSeatsDot');
+        if (status) {
+            status.style.setProperty('background-color', swinkSeatsActive ? '#2563eb' : '#cbd5e1', 'important');
+        }
+        if (dot) {
+            dot.style.setProperty('left', swinkSeatsActive ? '1.1rem' : '0.15rem', 'important');
+        }
+    }
+
+    // グローバルクリックアクション関数 (DOMからの直接呼び出し)
+    window.toggleSwinkSeatsAction = function() {
+        try {
+            if (currentRoomId !== 'swink') return;
+            swinkSeatsActive = !swinkSeatsActive;
+            updateSwinkSeatsToggleUI();
+            renderSwinkBleachers();
+        } catch (err) {
+            console.error('toggleSwinkSeatsAction error:', err);
+        }
+    };
+
+    // 移動観覧席の独立描画関数（配置済み家具を保護して観覧席パーツのみ更新）
+    function renderSwinkBleachers() {
+        try {
+            // 既存の観覧席オブジェクトを確実に削除
+            if (currentBleacherGroup) {
+                canvas.remove(currentBleacherGroup);
+                currentBleacherGroup = null;
+            }
+            const existing = canvas.getObjects().filter(o => o.isBleacher);
+            existing.forEach(o => canvas.remove(o));
+
+            if (currentRoomId !== 'swink' || !swinkSeatsActive) {
+                canvas.requestRenderAll();
+                return;
+            }
+
+            const roomAreaHeight = canvas.height - 50; // infoMargin
+            const wallThick = 0.12 * SCALE;
+            const seatsHeight = 10.868 * SCALE;
+            const swinkDoorSize = 2.1 * SCALE;
+            const startY = roomAreaHeight - wallThick - seatsHeight;
+            const seatsWidth = canvas.width - (wallThick * 2) - (swinkDoorSize * 2);
+            const startX = wallThick + swinkDoorSize;
+
+            const groupItems = [];
+
+            // 背景エリア (グレー基調で立体感のあるデザイン)
+            groupItems.push(new fabric.Rect({
+                left: startX, top: startY, width: seatsWidth, height: seatsHeight,
+                fill: '#e2e8f0', stroke: '#94a3b8', strokeWidth: 3, rx: 4, ry: 4
+            }));
+            // 内側のエッジ
+            groupItems.push(new fabric.Rect({
+                left: startX + 3, top: startY + 3, width: seatsWidth - 6, height: seatsHeight - 6,
+                fill: 'transparent', stroke: '#f8fafc', strokeWidth: 1.5, rx: 2, ry: 2
+            }));
+
+            // 座席計算 (26席 + 2通路)
+            const aisleCount = 2;
+            const totalChairs = 26;
+            const unitW = seatsWidth / (totalChairs + (aisleCount * 2));
+            const chairW = unitW;
+            const aisleW = unitW * 2;
+
+            // 8行の段差と座席
+            for (let i = 0; i < 8; i++) {
+                const rowY = startY + (i * (seatsHeight / 8.5)) + (seatsHeight / 16);
+                
+                // 段差ライン
+                groupItems.push(new fabric.Rect({
+                    left: startX + 2, top: rowY + 12, width: seatsWidth - 4, height: 1,
+                    fill: '#334155'
+                }));
+
+                // 座席配置 (8 - 10 - 8)
+                let currentX = startX + (seatsWidth - (totalChairs * chairW + aisleCount * aisleW)) / 2 + (chairW / 2);
+                const blockCounts = [8, 10, 8];
+                
+                blockCounts.forEach((count, bIdx) => {
+                    for (let c = 0; c < count; c++) {
+                        // 肘掛け (少し薄めの赤)
+                        groupItems.push(new fabric.Rect({
+                            left: currentX, top: rowY, width: chairW - 2, height: 10, fill: '#b91c1c', rx: 2, ry: 2, originX: 'center', originY: 'center'
+                        }));
+                        // 座面クッション (明るいソフトレッド)
+                        groupItems.push(new fabric.Rect({
+                            left: currentX, top: rowY - 1, width: chairW - 6, height: 8, fill: '#f87171', rx: 3, ry: 3, originX: 'center', originY: 'center'
+                        }));
+                        // 背もたれ (中間的な赤)
+                        groupItems.push(new fabric.Rect({
+                            left: currentX, top: rowY + 5, width: chairW - 2, height: 4, fill: '#ef4444', rx: 2, ry: 2, originX: 'center', originY: 'center'
+                        }));
+                        // 質感ハイライト
+                        groupItems.push(new fabric.Rect({
+                            left: currentX, top: rowY - 2, width: chairW - 10, height: 2, fill: 'rgba(255,255,255,0.4)', rx: 1, ry: 1, originX: 'center', originY: 'center'
+                        }));
+                        currentX += chairW;
+                    }
+                    if (bIdx < blockCounts.length - 1) currentX += aisleW;
+                });
+            }
+
+            groupItems.push(new fabric.Text('移動観覧席 (208席)', {
+                left: canvas.width / 2, top: roomAreaHeight - wallThick - 15,
+                fontSize: 16, fontWeight: 'bold', fill: '#475569', originX: 'center'
+            }));
+
+            currentBleacherGroup = new fabric.Group(groupItems, {
+                isBleacher: true,
+                selectable: false,
+                evented: false
+            });
+
+            canvas.add(currentBleacherGroup);
+
+            // 安全な重ね順配置
+            canvas.sendToBack(currentBleacherGroup);
+            const floorObj = canvas.getObjects().find(o => !o.furnitureType && !o.isBleacher && o.type === 'rect');
+            if (floorObj) {
+                canvas.sendToBack(floorObj);
+            }
+
+            canvas.requestRenderAll();
+        } catch (err) {
+            console.error('renderSwinkBleachers error:', err);
+        }
+    }
+
+
 
     // レイアウトプリセット定義
     const LAYOUT_PRESETS = {
@@ -291,15 +426,40 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         },
         swink: {
+            'lecture1': {
+                name: '講演会形式1 (移動観覧席 展開＋前に椅子)',
+                swinkSeatsActive: true,
+                items: ROOM_DATA.swink.initialLayout
+            },
+            'lecture2': {
+                name: '講演会形式2 (移動観覧席 展開＋前に机32台)',
+                swinkSeatsActive: true,
+                items: (function() {
+                    const layout = [
+                        { type: 'desk', x: 7.8, y: 2.6, w: 1.6, h: 0.8, angle: 135, label: '操作卓', isSpecial: true }
+                    ];
+                    // 縦（北から南）4列、横（東から西）8列で32台 (angle 0)
+                    const startX = 4.0;
+                    const pitchX = 2.6;
+                    const startY = 7.6;
+                    const pitchY = 1.4;
+                    for (let row = 0; row < 4; row++) {
+                        for (let col = 0; col < 8; col++) {
+                            layout.push({ type: 'desk', x: startX + col * pitchX, y: startY + row * pitchY, angle: 0 });
+                        }
+                    }
+                    return layout;
+                })()
+            },
             'empty': {
-                name: '空 (観覧席収納・机椅子なし)',
+                name: '空 (移動観覧席 収納・机椅子なし)',
                 swinkSeatsActive: false,
                 items: [
                     { type: 'desk', x: 7.8, y: 2.6, w: 1.6, h: 0.8, angle: 135, label: '操作卓', isSpecial: true }
                 ]
             },
             'exam': {
-                name: '試験・スクール形式 (机64台)',
+                name: '試験・スクール形式 (移動観覧席 収納・机64台)',
                 swinkSeatsActive: false,
                 items: (function() {
                     const layout = [
@@ -357,27 +517,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // スインクホールの観覧席自動切り替えロジック
         if (currentRoomId === 'swink' && preset.swinkSeatsActive !== undefined) {
-            if (swinkSeatsActive !== preset.swinkSeatsActive) {
-                swinkSeatsActive = preset.swinkSeatsActive;
-                const status = document.getElementById('swinkSeatsStatus');
-                const dot = status?.querySelector('.dot');
-                if (status && dot) {
-                    if (swinkSeatsActive) {
-                        status.classList.replace('bg-slate-300', 'bg-blue-600');
-                        dot.classList.replace('left-1', 'left-6');
-                    } else {
-                        status.classList.replace('bg-blue-600', 'bg-slate-300');
-                        dot.classList.replace('left-6', 'left-1');
-                    }
-                }
-                
-                // 一時的に initialLayout を preset に差し替えて描画をリセット
-                const originalLayout = ROOM_DATA.swink.initialLayout;
-                ROOM_DATA.swink.initialLayout = preset.items;
-                updateRoom('swink');
-                ROOM_DATA.swink.initialLayout = originalLayout;
-                return; // updateRoom 内で配置されるのでここで終了
-            }
+            swinkSeatsActive = preset.swinkSeatsActive;
+            updateSwinkSeatsToggleUI();
+            
+            // 一時的に initialLayout を preset に差し替えて描画をリセット
+            const originalLayout = ROOM_DATA.swink.initialLayout;
+            ROOM_DATA.swink.initialLayout = preset.items;
+            updateRoom('swink');
+            ROOM_DATA.swink.initialLayout = originalLayout;
+
+            // 適用したパターン名をセレクトボックスに保持
+            const select = document.getElementById('layoutPatternSelect');
+            if (select) select.value = patternId;
+            return; // updateRoom 内で配置されるのでここで終了
         }
 
         // 家具のみを削除 (壁などは残す)
@@ -401,6 +553,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (index === preset.items.length - 1) {
                     isUpdating = false;
                     updateCapacityDisplay();
+
+                    // 適用したパターン名をセレクトボックスに保持
+                    const select = document.getElementById('layoutPatternSelect');
+                    if (select) select.value = patternId;
                 }
             }, index * 20);
         });
@@ -723,11 +879,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (roomId === 'swink') {
-            roomSpecControls.classList.remove('hidden');
-            swinkControls.classList.remove('hidden');
+            if (swinkControls) swinkControls.classList.remove('hidden');
+            updateSwinkSeatsToggleUI();
         } else {
-            roomSpecControls.classList.add('hidden');
-            swinkControls.classList.add('hidden');
+            if (swinkControls) swinkControls.classList.add('hidden');
         }
 
         // 背景のベース (部屋の外側)
@@ -886,80 +1041,8 @@ document.addEventListener('DOMContentLoaded', () => {
             canvas.add(stageLabel);
         }
 
-        // スインクホールの移動観覧席 (8-10-8構成の208席)
-        if (roomId === 'swink' && swinkSeatsActive) {
-            const seatsHeight = 10.868 * SCALE;
-            const swinkDoorSize = 2.1 * SCALE;
-            const startY = roomAreaHeight - wallThick - seatsHeight;
-            const seatsWidth = newWidth - (wallThick * 2) - (swinkDoorSize * 2);
-            const startX = wallThick + swinkDoorSize;
-
-            // 背景エリア (グレー基調で立体感のあるデザイン)
-            canvas.add(new fabric.Rect({
-                left: startX, top: startY, width: seatsWidth, height: seatsHeight,
-                fill: '#e2e8f0', stroke: '#94a3b8', strokeWidth: 3, rx: 4, ry: 4,
-                selectable: false, evented: false
-            }));
-            // 内側のエッジ（さらに立体感を出す）
-            canvas.add(new fabric.Rect({
-                left: startX + 3, top: startY + 3, width: seatsWidth - 6, height: seatsHeight - 6,
-                fill: 'transparent', stroke: '#f8fafc', strokeWidth: 1.5, rx: 2, ry: 2,
-                selectable: false, evented: false
-            }));
-
-            // 座席計算 (26席 + 2通路)
-            const aisleCount = 2;
-            const totalChairs = 26;
-            const unitW = seatsWidth / (totalChairs + (aisleCount * 2)); // 通路を2席分として計算
-            const chairW = unitW;
-            const aisleW = unitW * 2;
-
-            // 8行の段差と座席
-            for (let i = 0; i < 8; i++) {
-                const rowY = startY + (i * (seatsHeight / 8.5)) + (seatsHeight / 16);
-                
-                // 段差ライン (金属的な質感)
-                canvas.add(new fabric.Rect({
-                    left: startX + 2, top: rowY + 12, width: seatsWidth - 4, height: 1,
-                    fill: '#334155', selectable: false, evented: false
-                }));
-
-                // 座席配置 (8 - 10 - 8)
-                let currentX = startX + (seatsWidth - (totalChairs * chairW + aisleCount * aisleW)) / 2 + (chairW / 2);
-                const blockCounts = [8, 10, 8];
-                
-                blockCounts.forEach((count, bIdx) => {
-                    for (let c = 0; c < count; c++) {
-                        // 肘掛け (少し薄めの赤)
-                        const arm = new fabric.Rect({
-                            left: currentX, top: rowY, width: chairW - 2, height: 10, fill: '#b91c1c', rx: 2, ry: 2, originX: 'center', originY: 'center', selectable: false, evented: false
-                        });
-                        // 座面クッション (明るいソフトレッド)
-                        const seat = new fabric.Rect({
-                            left: currentX, top: rowY - 1, width: chairW - 6, height: 8, fill: '#f87171', rx: 3, ry: 3, originX: 'center', originY: 'center', selectable: false, evented: false
-                        });
-                        // 背もたれ (中間的な赤)
-                        const back = new fabric.Rect({
-                            left: currentX, top: rowY + 5, width: chairW - 2, height: 4, fill: '#ef4444', rx: 2, ry: 2, originX: 'center', originY: 'center', selectable: false, evented: false
-                        });
-                        // 質感ハイライト
-                        const highlight = new fabric.Rect({
-                            left: currentX, top: rowY - 2, width: chairW - 10, height: 2, fill: 'rgba(255,255,255,0.4)', rx: 1, ry: 1, originX: 'center', originY: 'center', selectable: false, evented: false
-                        });
-
-                        canvas.add(arm, seat, back, highlight);
-                        currentX += chairW;
-                    }
-                    if (bIdx < blockCounts.length - 1) currentX += aisleW;
-                });
-            }
-
-            const seatsLabel = new fabric.Text('移動観覧席 (208席)', {
-                left: newWidth / 2, top: roomAreaHeight - wallThick - 15,
-                fontSize: 16, fontWeight: 'bold', fill: '#475569', originX: 'center', selectable: false
-            });
-            canvas.add(seatsLabel);
-        }
+        // スインクホールの移動観覧席
+        renderSwinkBleachers();
 
         // 4. ドアの描画（建築図面風：90度開いた状態＋開閉アーク）
         const doorSizeMap = {
@@ -1296,19 +1379,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // スインクホールのトグルボタン
-    document.getElementById('toggleSwinkSeats')?.addEventListener('click', () => {
-        swinkSeatsActive = !swinkSeatsActive;
-        const status = document.getElementById('swinkSeatsStatus');
-        const dot = status.querySelector('.dot');
-        if (swinkSeatsActive) {
-            status.classList.replace('bg-slate-300', 'bg-blue-600');
-            dot.classList.replace('left-1', 'left-6');
-        } else {
-            status.classList.replace('bg-blue-600', 'bg-slate-300');
-            dot.classList.replace('left-6', 'left-1');
-        }
-        updateRoom('swink');
-    });
+    // 旧トグルハンドラは不要となったため削除
+
 
     // 方位の更新
     function updateCompass(roomId) {
@@ -1417,7 +1489,7 @@ document.addEventListener('DOMContentLoaded', () => {
         activeMeasureTick1 = createMeasureTick(startX, startY);
         activeMeasureTick2 = createMeasureTick(startX, startY);
 
-        activeMeasureText = new fabric.Text('0mm', {
+        activeMeasureText = new fabric.Text('0cm', {
             fontSize: 14,
             fontWeight: 'bold',
             fill: '#ef4444',
@@ -1444,11 +1516,11 @@ document.addEventListener('DOMContentLoaded', () => {
         activeMeasureLine.set({ x2: endX, y2: endY });
         activeMeasureTick2.set({ left: endX, top: endY });
 
-        // 距離計算
+        // 距離計算 (10cm単位のcm表記)
         const dx = endX - activeMeasureLine.x1;
         const dy = endY - activeMeasureLine.y1;
         const distancePx = Math.sqrt(dx * dx + dy * dy);
-        const distanceMm = Math.round((distancePx / SCALE) * 1000);
+        const distanceCm = Math.round((distancePx / SCALE) * 10) * 10;
         
         // 角度計算とティックの回転
         const angle = Math.atan2(dy, dx) * 180 / Math.PI;
@@ -1456,7 +1528,7 @@ document.addEventListener('DOMContentLoaded', () => {
         activeMeasureTick2.set('angle', angle + 45);
 
         activeMeasureText.set({
-            text: `${distanceMm}mm`,
+            text: `${distanceCm}cm`,
             left: (activeMeasureLine.x1 + endX) / 2,
             top: (activeMeasureLine.y1 + endY) / 2 - 15
         });
@@ -1511,7 +1583,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const defaultTop = canvas.height / 2 + (Math.random() * 20 - 10);
         const style = {
             desk: { fill: '#ffffff', stroke: '#94a3b8', accent: '#f8fafc' },
-            chair: { fill: '#64748b', stroke: '#334155', accent: '#94a3b8' }, // スレートブルー（明るく見やすく）
+            chair: { fill: '#2563eb', stroke: '#1d4ed8', accent: '#60a5fa' }, // 明るい青色 (ロイヤルブルー)
             whiteboard: { fill: '#ffffff', stroke: '#64748b', accent: '#f8fafc' },
             lecternShared: { fill: '#475569', stroke: '#1e293b', accent: '#64748b' },
             mcDesk: { fill: '#475569', stroke: '#1e293b', accent: '#64748b' },
