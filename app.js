@@ -165,10 +165,13 @@ document.addEventListener('DOMContentLoaded', () => {
         swink: ['bottom-left', 'bottom-right']
     };
 
-    // URLパラメータ (?room=xxx) による初期表示部屋の決定
+    // URLパラメータ (?room=xxx) による初期表示部屋の決定（エイリアス対応）
     const urlParams = new URLSearchParams(window.location.search);
-    const roomParam = urlParams.get('room');
-    let currentRoomId = (roomParam && ROOM_DATA[roomParam]) ? roomParam : 'room1';
+    const roomParamRaw = urlParams.get('room');
+    // エイリアスマッピング: sinc -> swink
+    const ROOM_PARAM_MAP = { sinc: 'swink' };
+    const resolvedRoomParam = roomParamRaw && ROOM_PARAM_MAP[roomParamRaw] ? ROOM_PARAM_MAP[roomParamRaw] : roomParamRaw;
+    let currentRoomId = (resolvedRoomParam && ROOM_DATA[resolvedRoomParam]) ? resolvedRoomParam : 'room1';
     let swinkSeatsActive = true;
     let currentBleacherGroup = null; // 観覧席グループオブジェクトの参照保持
     let SCALE = 100;
