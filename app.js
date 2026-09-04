@@ -165,7 +165,10 @@ document.addEventListener('DOMContentLoaded', () => {
         swink: ['bottom-left', 'bottom-right']
     };
 
-    let currentRoomId = 'room1';
+    // URLパラメータ (?room=xxx) による初期表示部屋の決定
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomParam = urlParams.get('room');
+    let currentRoomId = (roomParam && ROOM_DATA[roomParam]) ? roomParam : 'room1';
     let swinkSeatsActive = true;
     let currentBleacherGroup = null; // 観覧席グループオブジェクトの参照保持
     let SCALE = 100;
@@ -826,6 +829,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         isUpdating = true; // 更新開始
         currentRoomId = roomId;
+
+        // 部屋選択セレクトボックスの選択状態を同期
+        const roomSelectEl = document.getElementById('roomSelect');
+        if (roomSelectEl && roomSelectEl.value !== roomId) {
+            roomSelectEl.value = roomId;
+        }
 
         // プリセット選択肢の更新
         updatePatternSelect(roomId);
@@ -1572,7 +1581,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 初期表示
-    updateRoom('room1');
+    updateRoom(currentRoomId);
 
 
     // --------------------------------------------------
