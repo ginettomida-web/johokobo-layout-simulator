@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=60">
+    <link rel="stylesheet" href="style.css?v=70">
 </head>
 
 <body class="text-slate-900 font-sans h-screen flex flex-col overflow-hidden relative bg-[#f8fafc]">
@@ -181,7 +181,8 @@
             <!-- Room Selection & Settings (Compact on Mobile) -->
             <div class="grid grid-cols-2 lg:flex lg:flex-col gap-2.5 lg:gap-4 shrink-0">
                 <div class="space-y-1 lg:space-y-4">
-                    <label class="text-[9px] lg:text-sm font-bold uppercase tracking-wider block" style="color: red; font-weight: bold;">対象施設</label>
+                    <label class="text-[9px] lg:text-sm font-bold uppercase tracking-wider block"
+                        style="color: red; font-weight: bold;">対象施設</label>
                     <select id="roomSelect"
                         class="w-full appearance-none bg-white border-2 border-slate-100 rounded-lg lg:rounded-xl py-1.5 lg:py-3 px-2 lg:px-4 pr-6 lg:pr-8 text-[11px] lg:text-sm font-medium text-slate-700 focus:border-blue-500 focus:ring-0 transition-all shadow-sm">
                         <optgroup label="会議室">
@@ -245,10 +246,9 @@
                                 class="w-10 lg:w-12 h-5 lg:h-6 bg-slate-300 rounded-full peer peer-checked:bg-blue-600 transition-colors after:content-[''] after:absolute after:top-0.5 lg:after:top-1 after:left-0.5 lg:after:left-1 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5 lg:peer-checked:after:translate-x-6">
                             </div>
                         </div>
-                        <div class="flex flex-col min-w-0">
-                            <span class="text-[10px] lg:text-sm font-bold text-slate-700 truncate">スナップ機能
-                                (10cm吸着)</span>
-                            <span class="text-[8px] text-blue-600 font-bold hidden lg:block">10cm (0.1m) 単位で吸着整列</span>
+                        <div>
+                            <span class="text-xs lg:text-sm font-bold text-slate-700 block">グリッド吸着 (スナップ)</span>
+                            <span class="text-[9px] lg:text-xs text-slate-400 block">10cm単位で備品を整列</span>
                         </div>
                     </label>
                 </div>
@@ -258,214 +258,235 @@
             <div class="flex-1 min-w-0 space-y-3 lg:space-y-4">
                 <!-- Basic Furniture -->
                 <div class="space-y-1.5 lg:space-y-4">
-                    <div class="flex items-baseline justify-between">
+                    <div class="panel-header flex items-baseline justify-between" id="basicFurniturePanelHeader" onclick="window.togglePanelCollapse('basicFurnitureContent', 'basicFurniturePanelIcon')">
                         <label
-                            class="text-[10px] lg:text-sm font-bold text-slate-500 uppercase tracking-wider block">基本備品</label>
-                        <span class="text-[8px] lg:text-xs text-blue-600 font-medium">※押すと部屋の中央に追加</span>
+                            class="text-[10px] lg:text-sm font-bold text-slate-500 uppercase tracking-wider block cursor-pointer">基本備品</label>
+                        <div class="flex items-center gap-1">
+                            <span class="text-[8px] lg:text-xs text-blue-600 font-medium hidden lg:block">※押すと部屋の中央に追加</span>
+                            <span class="panel-toggle-icon open" id="basicFurniturePanelIcon">▼</span>
+                        </div>
                     </div>
-                    <!-- スマホで3列の綺麗なコンパクトグリッド -->
-                    <div class="grid grid-cols-3 lg:flex lg:flex-col gap-2 lg:gap-3">
-                        <!-- Desk -->
-                        <button id="addDeskBtn"
-                            class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95">
-                            <div
-                                class="w-8 h-8 lg:w-16 lg:h-16 bg-blue-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-blue-100 shrink-0">
-                                <div class="w-5 h-3 lg:w-10 lg:h-6 bg-white border-2 border-blue-400 rounded-sm"></div>
-                            </div>
-                            <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">テーブル
-                                </p>
-                                <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">1800×600</p>
-                                <span id="deskCount" class="text-[9px] lg:text-base font-black text-blue-600 block">0 /
-                                    0</span>
-                            </div>
-                        </button>
-                        <!-- Chair -->
-                        <button id="addChairBtn"
-                            class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95">
-                            <div
-                                class="w-8 h-8 lg:w-16 lg:h-16 bg-blue-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-blue-100 shrink-0">
-                                <div class="w-4 h-4 lg:w-8 lg:h-8 border-2 border-blue-400 rounded-full"></div>
-                            </div>
-                            <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">椅子
-                                </p>
-                                <p id="chairTypeDesc" class="text-[7px] lg:text-xs text-slate-400 truncate"></p>
-                                <span id="chairCount" class="text-[9px] lg:text-base font-black text-blue-600 block">0 /
-                                    0</span>
-                            </div>
-                        </button>
-                        <!-- Whiteboard -->
-                        <button id="addWhiteboardBtn"
-                            class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95">
-                            <div
-                                class="w-8 h-8 lg:w-16 lg:h-16 bg-blue-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-blue-100 shrink-0">
-                                <div class="w-5 h-2.5 lg:w-10 lg:h-4 bg-white border-2 border-blue-300 rounded-sm">
+                    <span class="text-[8px] text-blue-600 font-medium lg:hidden">※押すと部屋の中央に追加</span>
+                    <div id="basicFurnitureContent" class="collapsible-content open">
+                        <!-- スマホで2列と2列のコンパクトグリッド -->
+                        <div class="grid grid-cols-3 mobile-grid-2col lg:flex lg:flex-col gap-2 lg:gap-3">
+                            <!-- Desk -->
+                            <button id="addDeskBtn"
+                                class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95">
+                                <div
+                                    class="w-8 h-8 lg:w-16 lg:h-16 bg-blue-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-blue-100 shrink-0">
+                                    <div class="w-5 h-3 lg:w-10 lg:h-6 bg-white border-2 border-blue-400 rounded-sm"></div>
                                 </div>
-                            </div>
-                            <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">ボード
-                                </p>
-                                <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">1800×500</p>
-                                <span id="whiteboardCount"
-                                    class="text-[9px] lg:text-base font-black text-blue-600 block">0 / 0</span>
-                            </div>
-                        </button>
-                    </div>
+                                <div class="text-center lg:text-left flex-1 min-w-0 w-full">
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">テーブル
+                                    </p>
+                                    <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">1800×600</p>
+                                    <span id="deskCount" class="text-[9px] lg:text-base font-black text-blue-600 block">0 /
+                                        0</span>
+                                </div>
+                            </button>
+                            <!-- Chair -->
+                            <button id="addChairBtn"
+                                class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95">
+                                <div
+                                    class="w-8 h-8 lg:w-16 lg:h-16 bg-blue-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-blue-100 shrink-0">
+                                    <div class="w-4 h-4 lg:w-8 lg:h-8 border-2 border-blue-400 rounded-full"></div>
+                                </div>
+                                <div class="text-center lg:text-left flex-1 min-w-0 w-full">
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">椅子
+                                    </p>
+                                    <p id="chairTypeDesc" class="text-[7px] lg:text-xs text-slate-400 truncate"></p>
+                                    <span id="chairCount" class="text-[9px] lg:text-base font-black text-blue-600 block">0 /
+                                        0</span>
+                                </div>
+                            </button>
+                            <!-- Whiteboard -->
+                            <button id="addWhiteboardBtn"
+                                class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95">
+                                <div
+                                    class="w-8 h-8 lg:w-16 lg:h-16 bg-blue-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-blue-100 shrink-0">
+                                    <div class="w-5 h-2.5 lg:w-10 lg:h-4 bg-white border-2 border-blue-300 rounded-sm">
+                                    </div>
+                                </div>
+                                <div class="text-center lg:text-left flex-1 min-w-0 w-full">
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">ボード
+                                    </p>
+                                    <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">1800×500</p>
+                                    <span id="whiteboardCount"
+                                        class="text-[9px] lg:text-base font-black text-blue-600 block">0 / 0</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div><!-- /basicFurnitureContent -->
                 </div>
 
                 <!-- Shared Equipment -->
                 <div class="space-y-1.5 lg:space-y-4 pt-2 lg:border-t lg:border-slate-100 lg:pt-6">
-                    <label
-                        class="text-[10px] lg:text-sm font-bold text-slate-500 uppercase tracking-wider block">共用備品</label>
-                    <div class="grid grid-cols-3 lg:flex lg:flex-col gap-2 lg:gap-3">
-                        <button id="addLecternSharedBtn"
-                            class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95">
-                            <div
-                                class="w-8 h-8 lg:w-16 lg:h-16 bg-slate-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-slate-200 shrink-0">
-                                <div class="w-4 h-2.5 bg-white border border-slate-400 rounded-sm"></div>
-                            </div>
-                            <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">演台
-                                </p>
-                                <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">900×500</p>
-                                <span id="lecternSharedCount"
-                                    class="text-[9px] lg:text-base font-black text-blue-600 block">0 / 2</span>
-                            </div>
-                        </button>
-                        <button id="addMcDeskBtn"
-                            class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95">
-                            <div
-                                class="w-8 h-8 lg:w-16 lg:h-16 bg-slate-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-slate-200 shrink-0">
-                                <div class="w-3.5 h-2.5 bg-white border border-slate-400 rounded-sm"></div>
-                            </div>
-                            <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">司会台
-                                </p>
-                                <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">750×500</p>
-                                <span id="mcDeskCount" class="text-[9px] lg:text-base font-black text-blue-600 block">0
-                                    / 2</span>
-                            </div>
-                        </button>
-                        <button id="addSeminarLecternBtn"
-                            class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95">
-                            <div
-                                class="w-8 h-8 lg:w-16 lg:h-16 bg-slate-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-slate-200 shrink-0">
-                                <div class="w-4 h-2.5 bg-white border border-slate-400 rounded-sm"></div>
-                            </div>
-                            <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">
-                                    セミナー演台</p>
-                                <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">1200×600</p>
-                                <span id="seminarLecternCount"
-                                    class="text-[9px] lg:text-base font-black text-blue-600 block">0 / -</span>
-                            </div>
-                        </button>
-                        <button id="addSwinkLecternBtn"
-                            class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95"
-                            style="display: none;">
-                            <div
-                                class="w-8 h-8 lg:w-16 lg:h-16 bg-slate-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-slate-200 shrink-0">
-                                <div class="w-4 h-2.5 bg-white border border-slate-400 rounded-sm"></div>
-                            </div>
-                            <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">ホール演台
-                                </p>
-                                <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">1500×700</p>
-                                <span id="swinkLecternCount"
-                                    class="text-[9px] lg:text-base font-black text-blue-600 block">0 / -</span>
-                            </div>
-                        </button>
-                        <button id="addSwinkMcDeskBtn"
-                            class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95"
-                            style="display: none;">
-                            <div
-                                class="w-8 h-8 lg:w-16 lg:h-16 bg-slate-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-slate-200 shrink-0">
-                                <div class="w-3.5 h-2.5 bg-white border border-slate-400 rounded-sm"></div>
-                            </div>
-                            <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">ホール司会
-                                </p>
-                                <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">600×450</p>
-                                <span id="swinkMcDeskCount"
-                                    class="text-[9px] lg:text-base font-black text-blue-600 block">0 / -</span>
-                            </div>
-                        </button>
-                        <button id="addScreenBtn"
-                            class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95">
-                            <div
-                                class="w-8 h-8 lg:w-16 lg:h-16 bg-slate-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-slate-200 shrink-0">
-                                <div class="w-5 h-1 bg-slate-400 rounded-full"></div>
-                            </div>
-                            <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">スクリーン
-                                </p>
-                                <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">2100×150</p>
-                                <span id="screenCount" class="text-[9px] lg:text-base font-black text-blue-600 block">0
-                                    / 2</span>
-                            </div>
-                        </button>
-                        <button id="addMonitorBtn"
-                            class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95">
-                            <div
-                                class="w-8 h-8 lg:w-16 lg:h-16 bg-slate-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-slate-200 shrink-0">
-                                <div class="w-5 h-1.5 bg-slate-800 rounded-sm border border-slate-600"></div>
-                            </div>
-                            <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">モニター
-                                </p>
-                                <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">1400×350</p>
-                                <span id="monitorCount" class="text-[9px] lg:text-base font-black text-blue-600 block">0
-                                    / 2</span>
-                            </div>
-                        </button>
+                    <div class="panel-header" id="sharedEquipmentPanelHeader" onclick="window.togglePanelCollapse('sharedEquipmentContent', 'sharedEquipmentPanelIcon')">
+                        <label
+                            class="text-[10px] lg:text-sm font-bold text-slate-500 uppercase tracking-wider block cursor-pointer">共用備品</label>
+                        <span class="panel-toggle-icon" id="sharedEquipmentPanelIcon">▼</span>
                     </div>
+                    <div id="sharedEquipmentContent" class="collapsible-content">
+                        <div class="grid grid-cols-3 mobile-grid-2col lg:flex lg:flex-col gap-2 lg:gap-3">
+                            <button id="addLecternSharedBtn"
+                                class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95">
+                                <div
+                                    class="w-8 h-8 lg:w-16 lg:h-16 bg-slate-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-slate-200 shrink-0">
+                                    <div class="w-4 h-2.5 bg-white border border-slate-400 rounded-sm"></div>
+                                </div>
+                                <div class="text-center lg:text-left flex-1 min-w-0 w-full">
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">演台
+                                    </p>
+                                    <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">900×500</p>
+                                    <span id="lecternSharedCount"
+                                        class="text-[9px] lg:text-base font-black text-blue-600 block">0 / 2</span>
+                                </div>
+                            </button>
+                            <button id="addMcDeskBtn"
+                                class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95">
+                                <div
+                                    class="w-8 h-8 lg:w-16 lg:h-16 bg-slate-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-slate-200 shrink-0">
+                                    <div class="w-3.5 h-2.5 bg-white border border-slate-400 rounded-sm"></div>
+                                </div>
+                                <div class="text-center lg:text-left flex-1 min-w-0 w-full">
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">司会台
+                                    </p>
+                                    <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">750×500</p>
+                                    <span id="mcDeskCount" class="text-[9px] lg:text-base font-black text-blue-600 block">0
+                                        / 2</span>
+                                </div>
+                            </button>
+                            <button id="addSeminarLecternBtn"
+                                class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95">
+                                <div
+                                    class="w-8 h-8 lg:w-16 lg:h-16 bg-slate-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-slate-200 shrink-0">
+                                    <div class="w-4 h-2.5 bg-white border border-slate-400 rounded-sm"></div>
+                                </div>
+                                <div class="text-center lg:text-left flex-1 min-w-0 w-full">
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">
+                                        セミナー演台</p>
+                                    <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">1200×600</p>
+                                    <span id="seminarLecternCount"
+                                        class="text-[9px] lg:text-base font-black text-blue-600 block">0 / -</span>
+                                </div>
+                            </button>
+                            <button id="addSwinkLecternBtn"
+                                class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95"
+                                style="display: none;">
+                                <div
+                                    class="w-8 h-8 lg:w-16 lg:h-16 bg-slate-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-slate-200 shrink-0">
+                                    <div class="w-4 h-2.5 bg-white border border-slate-400 rounded-sm"></div>
+                                </div>
+                                <div class="text-center lg:text-left flex-1 min-w-0 w-full">
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">ホール演台
+                                    </p>
+                                    <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">1500×700</p>
+                                    <span id="swinkLecternCount"
+                                        class="text-[9px] lg:text-base font-black text-blue-600 block">0 / -</span>
+                                </div>
+                            </button>
+                            <button id="addSwinkMcDeskBtn"
+                                class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95"
+                                style="display: none;">
+                                <div
+                                    class="w-8 h-8 lg:w-16 lg:h-16 bg-slate-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-slate-200 shrink-0">
+                                    <div class="w-3.5 h-2.5 bg-white border border-slate-400 rounded-sm"></div>
+                                </div>
+                                <div class="text-center lg:text-left flex-1 min-w-0 w-full">
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">ホール司会
+                                    </p>
+                                    <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">600×450</p>
+                                    <span id="swinkMcDeskCount"
+                                        class="text-[9px] lg:text-base font-black text-blue-600 block">0 / -</span>
+                                </div>
+                            </button>
+                            <button id="addScreenBtn"
+                                class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95">
+                                <div
+                                    class="w-8 h-8 lg:w-16 lg:h-16 bg-slate-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-slate-200 shrink-0">
+                                    <div class="w-5 h-1 bg-slate-400 rounded-full"></div>
+                                </div>
+                                <div class="text-center lg:text-left flex-1 min-w-0 w-full">
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">スクリーン
+                                    </p>
+                                    <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">2100×150</p>
+                                    <span id="screenCount" class="text-[9px] lg:text-base font-black text-blue-600 block">0
+                                        / 2</span>
+                                </div>
+                            </button>
+                            <button id="addMonitorBtn"
+                                class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95">
+                                <div
+                                    class="w-8 h-8 lg:w-16 lg:h-16 bg-slate-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-slate-200 shrink-0">
+                                    <div class="w-5 h-1.5 bg-slate-800 rounded-sm border border-slate-600"></div>
+                                </div>
+                                <div class="text-center lg:text-left flex-1 min-w-0 w-full">
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">モニター
+                                    </p>
+                                    <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">1400×350</p>
+                                    <span id="monitorCount" class="text-[9px] lg:text-base font-black text-blue-600 block">0
+                                        / 2</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div><!-- /sharedEquipmentContent -->
                 </div>
             </div>
 
             <!-- Advanced Tools Section -->
-            <div class="space-y-4 pt-6 border-t border-slate-200">
-                <label
-                    class="text-[10px] lg:text-sm font-bold text-slate-500 uppercase tracking-wider block">レイアウトツール</label>
-                <div class="flex flex-col gap-2">
-                    <div class="flex gap-2">
-                        <button id="measureToolBtn"
-                            class="flex-1 flex items-center justify-center gap-2 py-3 px-3 bg-white border border-slate-200 rounded-lg text-[10px] lg:text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M3 6l3 12h12l3-12H3z"></path>
-                            </svg>
-                            計測モード
-                        </button>
-                        <button id="clearMeasureBtn"
-                            class="px-3 bg-white border border-slate-200 rounded-lg text-[10px] lg:text-xs font-bold text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all">
-                            クリア
-                        </button>
-                    </div>
+            <div class="space-y-4 pt-4 border-t border-slate-200">
+                <div class="panel-header" id="advancedToolsPanelHeader" onclick="window.togglePanelCollapse('advancedToolsContent', 'advancedToolsPanelIcon')">
+                    <label
+                        class="text-[10px] lg:text-sm font-bold text-slate-500 uppercase tracking-wider block cursor-pointer">レイアウトツール</label>
+                    <span class="panel-toggle-icon" id="advancedToolsPanelIcon">▼</span>
                 </div>
+                <div id="advancedToolsContent" class="collapsible-content">
+                    <div class="flex flex-col gap-2">
+                        <div class="flex gap-2">
+                            <button id="measureToolBtn"
+                                class="flex-1 flex items-center justify-center gap-2 py-3 px-3 bg-white border border-slate-200 rounded-lg text-[10px] lg:text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M3 6l3 12h12l3-12H3z"></path>
+                                </svg>
+                                計測モード
+                            </button>
+                            <button id="clearMeasureBtn"
+                                class="px-3 bg-white border border-slate-200 rounded-lg text-[10px] lg:text-xs font-bold text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all">
+                                クリア
+                            </button>
+                        </div>
+                    </div>
+                </div><!-- /advancedToolsContent -->
             </div>
 
             <!-- Summary Section -->
-            <div class="flex-1 min-w-0 space-y-4 pt-6 border-t border-slate-200">
-                <label
-                    class="text-[10px] lg:text-sm font-bold text-slate-500 uppercase tracking-wider block">配置済み備品リスト</label>
-                <div id="inventorySummary" class="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                    <table class="w-full text-left text-[10px] lg:text-xs">
-                        <thead>
-                            <tr class="text-slate-400 border-b border-slate-200">
-                                <th class="pb-2 font-bold">備品名</th>
-                                <th class="pb-2 font-bold text-right">数量</th>
-                            </tr>
-                        </thead>
-                        <tbody id="inventoryList" class="text-slate-600">
-                            <!-- JSで動的に追加 -->
-                            <tr>
-                                <td class="py-2">なし</td>
-                                <td class="py-2 text-right">0</td>
-                            </tr>
-                        </tbody>
-                    </table>
+            <div class="flex-1 min-w-0 space-y-4 pt-4 border-t border-slate-200">
+                <div class="panel-header" id="summaryPanelHeader" onclick="window.togglePanelCollapse('summaryContent', 'summaryPanelIcon')">
+                    <label
+                        class="text-[10px] lg:text-sm font-bold text-slate-500 uppercase tracking-wider block cursor-pointer">配置済み備品リスト</label>
+                    <span class="panel-toggle-icon" id="summaryPanelIcon">▼</span>
                 </div>
+                <div id="summaryContent" class="collapsible-content">
+                    <div id="inventorySummary" class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                        <table class="w-full text-left text-[10px] lg:text-xs">
+                            <thead>
+                                <tr class="text-slate-400 border-b border-slate-200">
+                                    <th class="pb-2 font-bold">備品名</th>
+                                    <th class="pb-2 font-bold text-right">数量</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventoryList" class="text-slate-600">
+                                <!-- JSで動的に追加 -->
+                                <tr>
+                                    <td class="py-2">なし</td>
+                                    <td class="py-2 text-right">0</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div><!-- /summaryContent -->
             </div>
 
 
@@ -553,7 +574,7 @@
         </div>
     </footer>
 
-    <script src="app.js?v=3000"></script>
+    <script src="app.js?v=3001"></script>
 </body>
 
 </html>
