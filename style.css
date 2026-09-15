@@ -253,9 +253,76 @@ select:hover {
     align-items: flex-start;
   }
 
-  /* --- サイドバーの最大高さを調整して図面を広く --- */
+  /* --- ボトムシート型操作パネル（高さ可変 & 最小化） --- */
   #sidebar {
-    max-height: 48vh !important;
+    height: var(--sheet-height, 46vh) !important;
+    max-height: 75vh !important;
+    min-height: 15vh !important;
+    transition: height 0.25s cubic-bezier(0.2, 0.9, 0.3, 1);
+    will-change: height;
+  }
+
+  /* ドラッグ中の高速追従（トランジション無効化） */
+  #sidebar.dragging {
+    transition: none !important;
+  }
+
+  /* ドラッグハンドルバー（十分なタップ領域を確保） */
+  .sheet-drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 100%;
+    min-height: 34px;
+    padding: 6px 0;
+    margin-top: -6px;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .sheet-drag-handle:active {
+    cursor: grabbing;
+  }
+
+  /* ハンドル中央のピル（バー） */
+  .sheet-drag-pill {
+    width: 44px;
+    height: 5px;
+    background: #cbd5e1;
+    border-radius: 9999px;
+    transition: background-color 0.2s, width 0.2s;
+  }
+  .sheet-drag-handle:hover .sheet-drag-pill,
+  .sheet-drag-handle:active .sheet-drag-pill {
+    background: #94a3b8;
+    width: 52px;
+  }
+
+  /* 最小化 / 復元トグルボタン */
+  .sheet-toggle-btn {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(148, 163, 184, 0.12);
+    border: none;
+    font-size: 10px;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .sheet-toggle-btn:active {
+    background: rgba(148, 163, 184, 0.25);
+    transform: translateY(-50%) scale(0.92);
   }
 
   /* --- スクロールバー非表示 --- */
@@ -278,6 +345,19 @@ select:hover {
   /* PC画面ではヘッダーのクリックカーソルを通常に戻す */
   .panel-header {
     cursor: default !important;
+  }
+
+  /* PC画面ではボトムシート用ハンドルを完全非表示 */
+  #sheetDragHandle {
+    display: none !important;
+  }
+
+  /* PC画面のサイドバーは常に100%高さ・固定幅 */
+  #sidebar {
+    height: 100% !important;
+    max-height: none !important;
+    min-height: auto !important;
+    transition: none !important;
   }
 }
 

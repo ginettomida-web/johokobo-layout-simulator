@@ -2299,3 +2299,156 @@ window.initializeMobileUI = function() {
 // ページロード時とリサイズ時に初期状態を適用
 window.addEventListener('DOMContentLoaded', window.initializeMobileUI);
 window.addEventListener('resize', window.initializeMobileUI);
+
+// =====================================================
+// スマートフォン向け: ボトムシート型操作パネル（ドラッグ高さ変更 & 最小化）
+// =====================================================
+
+function initBottomSheetUI() {
+    const sidebar = document.getElementById('sidebar');
+    const handle = document.getElementById('sheetDragHandle');
+    const toggleBtn = document.getElementById('sheetToggleBtn');
+    const toggleIcon = document.getElementById('sheetToggleIcon');
+
+    if (!sidebar || !handle || !toggleBtn) return;
+
+    const MIN_RATIO = 0.15;      // 最小高さ: 画面の15%
+    const MAX_RATIO = 0.75;      // 最大高さ: 画面の75%
+    const DEFAULT_RATIO = 0.46;  // 初期・標準高さ: 画面の46%
+
+    let isDragging = false;
+    let startY = 0;
+    let startHeight = 0;
+    let savedHeight = null;
+    let isMinimized = false;
+
+    // ポインター（マウス・タッチ兼用）ドラッグ開始
+    handle.addEventListener('pointerdown', (e) => {
+        if (window.innerWidth > 768) return; // PCでは無効
+        // トグルボタン自体のタップ時はドラッグ開始しない
+        if (e.target.closest('#sheetToggleBtn')) return;
+
+        isDragging = true;
+        startY = e.clientY;
+        startHeight = sidebar.getBoundingClientRect().height;
+        sidebar.classList.add('dragging');
+
+        try {
+            handle.setPointerCapture(e.pointerId);
+        } catch (err) {}
+
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointercancel', onPointerUp);
+        e.preventDefault();
+    });
+
+    function onPointerMove(e) {
+        if (!isDragging) return;
+
+        // スマホではサイドバーが画面下部に配置されているため、
+        // 上にドラッグ（clientYが減少）すると高さが増加、下にドラッグすると高さが減少
+        const deltaY = startY - e.clientY;
+        let newHeight = startHeight + deltaY;
+
+        const minPx = Math.round(window.innerHeight * MIN_RATIO);
+        const maxPx = Math.round(window.innerHeight * MAX_RATIO);
+
+        newHeight = Math.max(minPx, Math.min(maxPx, newHeight));
+        sidebar.style.setProperty('--sheet-height', `${newHeight}px`);
+
+        // 最小化付近かどうかのトグルアイコン連動
+        if (newHeight <= minPx + 15) {
+            isMinimized = true;
+            if (toggleIcon) toggleIcon.textContent = '▲';
+        } else {
+            isMinimized = false;
+            if (toggleIcon) toggleIcon.textContent = '▼';
+        }
+    }
+
+    function onPointerUp(e) {
+        if (!isDragging) return;
+        isDragging = false;
+        sidebar.classList.remove('dragging');
+
+        try {
+            handle.releasePointerCapture(e.pointerId);
+        } catch (err) {}
+
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+        window.removeEventListener('pointercancel', onPointerUp);
+
+        const currentH = sidebar.getBoundingClientRect().height;
+        const minPx = Math.round(window.innerHeight * MIN_RATIO);
+
+        if (currentH > minPx + 20) {
+            savedHeight = currentH;
+            isMinimized = false;
+            if (toggleIcon) toggleIcon.textContent = '▼';
+        } else {
+            isMinimized = true;
+            if (toggleIcon) toggleIcon.textContent = '▲';
+        }
+    }
+
+    // ワンタップ最小化 / 復元トグルボタン
+    toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.innerWidth > 768) return;
+
+        const minPx = Math.round(window.innerHeight * MIN_RATIO);
+        const defaultPx = Math.round(window.innerHeight * DEFAULT_RATIO);
+        const currentH = sidebar.getBoundingClientRect().height;
+
+        if (!isMinimized && currentH > minPx + 20) {
+            // 最小化を実行
+            savedHeight = currentH;
+            isMinimized = true;
+            sidebar.style.setProperty('--sheet-height', `${minPx}px`);
+            if (toggleIcon) toggleIcon.textContent = '▲';
+        } else {
+            // 復元を実行（記憶した高さ、またはデフォルト高さ）
+            isMinimized = false;
+            const targetH = savedHeight ? Math.max(savedHeight, defaultPx) : defaultPx;
+            sidebar.style.setProperty('--sheet-height', `${targetH}px`);
+            if (toggleIcon) toggleIcon.textContent = '▼';
+        }
+    });
+
+    // 画面回転・リサイズ追従
+    function onViewportResize() {
+        if (window.innerWidth > 768) {
+            // PC版ではスタイルをリセット
+            sidebar.style.removeProperty('--sheet-height');
+            sidebar.classList.remove('dragging');
+        } else {
+            // スマホ版: 現在の高さが画面外にはみ出さないようクランプ
+            const minPx = Math.round(window.innerHeight * MIN_RATIO);
+            const maxPx = Math.round(window.innerHeight * MAX_RATIO);
+            if (isMinimized) {
+                sidebar.style.setProperty('--sheet-height', `${minPx}px`);
+            } else {
+                const currentH = sidebar.getBoundingClientRect().height;
+                if (currentH > maxPx) {
+                    sidebar.style.setProperty('--sheet-height', `${maxPx}px`);
+                } else if (currentH < minPx) {
+                    sidebar.style.setProperty('--sheet-height', `${minPx}px`);
+                }
+            }
+        }
+    }
+
+    window.addEventListener('resize', onViewportResize);
+    window.addEventListener('orientationchange', () => {
+        setTimeout(onViewportResize, 100);
+    });
+}
+
+// ページロード時にボトムシート初期化
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initBottomSheetUI);
+} else {
+    initBottomSheetUI();
+}
