@@ -5,11 +5,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 最大表示サイズを計算する関数 (スマホ・PCともに右上のコンパス・回転ボタンを含めて画面枠に収める)
     function getMaxCanvasSize() {
+        if (window.innerWidth <= 768) {
+            // スマートフォン表示時: 余白を最小化してキャンバスを最大化
+            const availW = Math.max(240, window.innerWidth - 8);
+            const availH = Math.max(240, window.innerHeight - 200);
+            return Math.min(availW, availH, 500);
+        }
         if (window.innerWidth < 1024) {
-            // スマホ表示時: 右側ボタンエリア(約70px)と左右余白を引いた最適な幅・高さを算出
-            const availW = Math.max(240, window.innerWidth - 110);
-            const availH = Math.max(240, window.innerHeight - 220);
-            return Math.min(availW, availH, 440);
+            // タブレット表示時
+            const availW = Math.max(300, window.innerWidth - 80);
+            const availH = Math.max(300, window.innerHeight - 200);
+            return Math.min(availW, availH, 520);
         }
         // PC表示時: 右上ツールバー含め画面全体にゆったり収まる800px上限
         const availW = Math.max(400, window.innerWidth - 500);
@@ -2222,3 +2228,74 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// =====================================================
+// スマートフォン向け: パネル折りたたみ機能
+// =====================================================
+
+/**
+ * パネルのコンテンツ表示/非表示を切り替える
+ * @param {string} contentId - コンテンツ要素のID
+ * @param {string} iconId    - アイコン要素のID
+ */
+window.togglePanelCollapse = function(contentId, iconId) {
+    const isMobile = window.innerWidth <= 768;
+    if (!isMobile) return; // PC では折りたたまない
+
+    const content = document.getElementById(contentId);
+    const icon = document.getElementById(iconId);
+    if (!content) return;
+
+    const isOpen = content.classList.contains('open');
+    if (isOpen) {
+        content.classList.remove('open');
+        if (icon) icon.classList.remove('open');
+    } else {
+        content.classList.add('open');
+        if (icon) icon.classList.add('open');
+    }
+};
+
+/**
+ * スマートフォン表示時の各パネル初期開閉状態を設定する
+ * - 部屋選択: 常に表示（折りたたみなし）
+ * - 基本備品: 開いている
+ * - 共用備品: 閉じている
+ * - レイアウトツール: 閉じている
+ * - 配置済み備品リスト: 閉じている
+ */
+window.initializeMobileUI = function() {
+    const isMobile = window.innerWidth <= 768;
+
+    const panelConfig = [
+        // { contentId, iconId, openOnMobile }
+        { contentId: 'basicFurnitureContent',  iconId: 'basicFurniturePanelIcon',  openOnMobile: true  },
+        { contentId: 'sharedEquipmentContent', iconId: 'sharedEquipmentPanelIcon', openOnMobile: false },
+        { contentId: 'advancedToolsContent',   iconId: 'advancedToolsPanelIcon',   openOnMobile: false },
+        { contentId: 'summaryContent',         iconId: 'summaryPanelIcon',         openOnMobile: false },
+    ];
+
+    panelConfig.forEach(({ contentId, iconId, openOnMobile }) => {
+        const content = document.getElementById(contentId);
+        const icon    = document.getElementById(iconId);
+        if (!content) return;
+
+        if (isMobile) {
+            // スマートフォン: 設定に従い開閉
+            if (openOnMobile) {
+                content.classList.add('open');
+                if (icon) icon.classList.add('open');
+            } else {
+                content.classList.remove('open');
+                if (icon) icon.classList.remove('open');
+            }
+        } else {
+            // PC: 全て表示（collapsible-content クラスは CSS で 768px 以下にのみ effect）
+            content.classList.add('open');
+            if (icon) icon.classList.add('open');
+        }
+    });
+};
+
+// ページロード時とリサイズ時に初期状態を適用
+window.addEventListener('DOMContentLoaded', window.initializeMobileUI);
+window.addEventListener('resize', window.initializeMobileUI);
