@@ -61,35 +61,9 @@
                 </svg>
                 <span class="whitespace-nowrap">選択モード</span>
             </button>
-            <button id="saveFileBtn" title="保存"
-                class="px-2 lg:px-5 py-1.5 text-[9px] lg:text-sm font-semibold text-slate-600 hover:text-slate-800 bg-white border border-slate-200 rounded-full hover:bg-slate-50 transition-all shadow-sm flex items-center gap-1 shrink-0 whitespace-nowrap">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4">
-                    </path>
-                </svg>
-                <span class="hidden md:inline">保存</span>
-            </button>
-            <button id="loadFileBtn" title="開く"
-                class="px-2 lg:px-5 py-1.5 text-[9px] lg:text-sm font-semibold text-slate-600 hover:text-slate-800 bg-white border border-slate-200 rounded-full hover:bg-slate-50 transition-all shadow-sm flex items-center gap-1 shrink-0 whitespace-nowrap">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-                </svg>
-                <span class="hidden md:inline">開く</span>
-            </button>
-            <input type="file" id="fileInput" class="hidden" accept=".json">
             <button id="clearBtn" title="リセット"
                 class="px-2.5 lg:px-5 py-1.5 text-[9px] lg:text-sm font-semibold text-slate-600 hover:text-slate-800 bg-white border border-slate-200 rounded-full hover:bg-slate-50 transition-all shadow-sm shrink-0 whitespace-nowrap">
                 リセット
-            </button>
-            <button id="exportBtn" title="画像で保存"
-                class="px-3 lg:px-6 py-1.5 text-[9px] lg:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-full transition-all flex items-center gap-1.5 shadow-md hover:shadow-lg active:scale-95 shrink-0 whitespace-nowrap">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                </svg>
-                <span>画像保存</span>
             </button>
         </div>
     </header>
@@ -103,7 +77,8 @@
             <!-- Bottom Sheet Drag Handle (Mobile Only: 768px以下専用) -->
             <div id="sheetDragHandle" class="sheet-drag-handle">
                 <div class="sheet-drag-pill" title="上下にドラッグしてパネル高さを変更"></div>
-                <button id="sheetToggleBtn" type="button" class="sheet-toggle-btn" title="パネル最小化/復元" aria-label="パネル最小化/復元">
+                <button id="sheetToggleBtn" type="button" class="sheet-toggle-btn" title="パネル最小化/復元"
+                    aria-label="パネル最小化/復元">
                     <span id="sheetToggleIcon">▼</span>
                 </button>
             </div>
@@ -266,11 +241,13 @@
             <div class="flex-1 min-w-0 space-y-3 lg:space-y-4">
                 <!-- Basic Furniture -->
                 <div class="space-y-1.5 lg:space-y-4">
-                    <div class="panel-header flex items-baseline justify-between" id="basicFurniturePanelHeader" onclick="window.togglePanelCollapse('basicFurnitureContent', 'basicFurniturePanelIcon')">
+                    <div class="panel-header flex items-baseline justify-between" id="basicFurniturePanelHeader"
+                        onclick="window.togglePanelCollapse('basicFurnitureContent', 'basicFurniturePanelIcon')">
                         <label
                             class="text-[10px] lg:text-sm font-bold text-slate-500 uppercase tracking-wider block cursor-pointer">基本備品</label>
                         <div class="flex items-center gap-1">
-                            <span class="text-[8px] lg:text-xs text-blue-600 font-medium hidden lg:block">※押すと部屋の中央に追加</span>
+                            <span
+                                class="text-[8px] lg:text-xs text-blue-600 font-medium hidden lg:block">※押すと部屋の中央に追加</span>
                             <span class="panel-toggle-icon open" id="basicFurniturePanelIcon">▼</span>
                         </div>
                     </div>
@@ -283,13 +260,16 @@
                                 class="furniture-btn group flex flex-col lg:flex-row items-center gap-1 lg:gap-6 p-2 lg:p-5 rounded-xl lg:rounded-[2rem] bg-white border border-slate-200/80 shadow-sm transition-all active:scale-95">
                                 <div
                                     class="w-8 h-8 lg:w-16 lg:h-16 bg-blue-50 rounded-lg lg:rounded-2xl flex items-center justify-center border border-blue-100 shrink-0">
-                                    <div class="w-5 h-3 lg:w-10 lg:h-6 bg-white border-2 border-blue-400 rounded-sm"></div>
+                                    <div class="w-5 h-3 lg:w-10 lg:h-6 bg-white border-2 border-blue-400 rounded-sm">
+                                    </div>
                                 </div>
                                 <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">テーブル
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">
+                                        テーブル
                                     </p>
                                     <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">1800×600</p>
-                                    <span id="deskCount" class="text-[9px] lg:text-base font-black text-blue-600 block">0 /
+                                    <span id="deskCount"
+                                        class="text-[9px] lg:text-base font-black text-blue-600 block">0 /
                                         0</span>
                                 </div>
                             </button>
@@ -301,10 +281,12 @@
                                     <div class="w-4 h-4 lg:w-8 lg:h-8 border-2 border-blue-400 rounded-full"></div>
                                 </div>
                                 <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">椅子
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">
+                                        椅子
                                     </p>
                                     <p id="chairTypeDesc" class="text-[7px] lg:text-xs text-slate-400 truncate"></p>
-                                    <span id="chairCount" class="text-[9px] lg:text-base font-black text-blue-600 block">0 /
+                                    <span id="chairCount"
+                                        class="text-[9px] lg:text-base font-black text-blue-600 block">0 /
                                         0</span>
                                 </div>
                             </button>
@@ -317,7 +299,8 @@
                                     </div>
                                 </div>
                                 <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">ボード
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">
+                                        ボード
                                     </p>
                                     <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">1800×500</p>
                                     <span id="whiteboardCount"
@@ -330,7 +313,8 @@
 
                 <!-- Shared Equipment -->
                 <div class="space-y-1.5 lg:space-y-4 pt-2 lg:border-t lg:border-slate-100 lg:pt-6">
-                    <div class="panel-header" id="sharedEquipmentPanelHeader" onclick="window.togglePanelCollapse('sharedEquipmentContent', 'sharedEquipmentPanelIcon')">
+                    <div class="panel-header" id="sharedEquipmentPanelHeader"
+                        onclick="window.togglePanelCollapse('sharedEquipmentContent', 'sharedEquipmentPanelIcon')">
                         <label
                             class="text-[10px] lg:text-sm font-bold text-slate-500 uppercase tracking-wider block cursor-pointer">共用備品</label>
                         <span class="panel-toggle-icon" id="sharedEquipmentPanelIcon">▼</span>
@@ -344,7 +328,8 @@
                                     <div class="w-4 h-2.5 bg-white border border-slate-400 rounded-sm"></div>
                                 </div>
                                 <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">演台
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">
+                                        演台
                                     </p>
                                     <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">900×500</p>
                                     <span id="lecternSharedCount"
@@ -358,10 +343,12 @@
                                     <div class="w-3.5 h-2.5 bg-white border border-slate-400 rounded-sm"></div>
                                 </div>
                                 <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">司会台
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">
+                                        司会台
                                     </p>
                                     <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">750×500</p>
-                                    <span id="mcDeskCount" class="text-[9px] lg:text-base font-black text-blue-600 block">0
+                                    <span id="mcDeskCount"
+                                        class="text-[9px] lg:text-base font-black text-blue-600 block">0
                                         / 2</span>
                                 </div>
                             </button>
@@ -387,7 +374,8 @@
                                     <div class="w-4 h-2.5 bg-white border border-slate-400 rounded-sm"></div>
                                 </div>
                                 <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">ホール演台
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">
+                                        ホール演台
                                     </p>
                                     <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">1500×700</p>
                                     <span id="swinkLecternCount"
@@ -402,7 +390,8 @@
                                     <div class="w-3.5 h-2.5 bg-white border border-slate-400 rounded-sm"></div>
                                 </div>
                                 <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">ホール司会
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">
+                                        ホール司会
                                     </p>
                                     <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">600×450</p>
                                     <span id="swinkMcDeskCount"
@@ -416,10 +405,12 @@
                                     <div class="w-5 h-1 bg-slate-400 rounded-full"></div>
                                 </div>
                                 <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">スクリーン
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">
+                                        スクリーン
                                     </p>
                                     <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">2100×150</p>
-                                    <span id="screenCount" class="text-[9px] lg:text-base font-black text-blue-600 block">0
+                                    <span id="screenCount"
+                                        class="text-[9px] lg:text-base font-black text-blue-600 block">0
                                         / 2</span>
                                 </div>
                             </button>
@@ -430,10 +421,12 @@
                                     <div class="w-5 h-1.5 bg-slate-800 rounded-sm border border-slate-600"></div>
                                 </div>
                                 <div class="text-center lg:text-left flex-1 min-w-0 w-full">
-                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">モニター
+                                    <p class="text-[10px] lg:text-lg font-black text-slate-800 truncate leading-tight">
+                                        モニター
                                     </p>
                                     <p class="text-[7px] lg:text-xs text-slate-500 font-medium truncate">1400×350</p>
-                                    <span id="monitorCount" class="text-[9px] lg:text-base font-black text-blue-600 block">0
+                                    <span id="monitorCount"
+                                        class="text-[9px] lg:text-base font-black text-blue-600 block">0
                                         / 2</span>
                                 </div>
                             </button>
@@ -444,7 +437,8 @@
 
             <!-- Advanced Tools Section -->
             <div class="space-y-4 pt-4 border-t border-slate-200">
-                <div class="panel-header" id="advancedToolsPanelHeader" onclick="window.togglePanelCollapse('advancedToolsContent', 'advancedToolsPanelIcon')">
+                <div class="panel-header" id="advancedToolsPanelHeader"
+                    onclick="window.togglePanelCollapse('advancedToolsContent', 'advancedToolsPanelIcon')">
                     <label
                         class="text-[10px] lg:text-sm font-bold text-slate-500 uppercase tracking-wider block cursor-pointer">レイアウトツール</label>
                     <span class="panel-toggle-icon" id="advancedToolsPanelIcon">▼</span>
@@ -471,7 +465,8 @@
 
             <!-- Summary Section -->
             <div class="flex-1 min-w-0 space-y-4 pt-4 border-t border-slate-200">
-                <div class="panel-header" id="summaryPanelHeader" onclick="window.togglePanelCollapse('summaryContent', 'summaryPanelIcon')">
+                <div class="panel-header" id="summaryPanelHeader"
+                    onclick="window.togglePanelCollapse('summaryContent', 'summaryPanelIcon')">
                     <label
                         class="text-[10px] lg:text-sm font-bold text-slate-500 uppercase tracking-wider block cursor-pointer">配置済み備品リスト</label>
                     <span class="panel-toggle-icon" id="summaryPanelIcon">▼</span>
